@@ -41,6 +41,7 @@ def _parse_args():
 
 class WebhookHandler(BaseHTTPRequestHandler):
     receiver = None  # class-level ref to pass config
+    health_paths = ("/", "/healthz", "/webhooks/tangled")
 
     def log_message(self, format, *args):
         # Suppress default stderr noise; errors go to stderr via server
@@ -53,13 +54,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
     def do_GET(self):
-        if self.path in ("/", "/healthz"):
+        if self.path in self.health_paths:
             self.send_json(200, {"ok": True, "service": "sunstead-tangled-webhook"})
         else:
             self.send_json(404, {"error": "not found"})
 
     def do_HEAD(self):
-        if self.path in ("/", "/healthz"):
+        if self.path in self.health_paths:
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
