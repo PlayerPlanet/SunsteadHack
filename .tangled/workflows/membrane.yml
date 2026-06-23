@@ -1,0 +1,17 @@
+name: membrane
+description: Tangled spindle workflow for membrane-crossing probe / ease-health clinical claim gate
+
+engine: "nixery"
+
+when:
+  - event: ["push", "manual"]
+    branch: ["main", "master"]
+
+dependencies:
+  nixpkgs: [python3]
+
+steps:
+  - name: Stage membrane unit
+    command: |
+      python3 scripts/stage_membrane_unit.py --actor "${AGENT_ACTOR:-agent-builder-001}" --output artifacts/staged-unit.json
+      cat artifacts/staged-unit.json
