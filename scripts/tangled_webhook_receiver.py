@@ -53,10 +53,19 @@ class WebhookHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
     def do_GET(self):
-        if self.path == "/healthz":
-            self.send_json(200, {"ok": True})
+        if self.path in ("/", "/healthz"):
+            self.send_json(200, {"ok": True, "service": "sunstead-tangled-webhook"})
         else:
             self.send_json(404, {"error": "not found"})
+
+    def do_HEAD(self):
+        if self.path in ("/", "/healthz"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def do_POST(self):
         if self.path != "/webhooks/tangled":
