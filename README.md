@@ -41,8 +41,8 @@ python scripts/record_judgment.py \
 | Pore                        | Purpose                                    |
 |-----------------------------|--------------------------------------------|
 | `regulatory_clinical_safety` | Gate patient-facing clinical claims     |
-| `model_transparency`         | Share model info with devs with disclosures |
-| `public_benign`              | Free circulation of non-clinical info     |
+| `generative_model`           | Gate model/calibration/objective changes |
+| `human_relational`           | Gate human-facing relational commitments |
 
 ## Cells
 
