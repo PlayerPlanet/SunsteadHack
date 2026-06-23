@@ -1,0 +1,39 @@
+# Cloudflare Tunnel config for SunsteadHack webhook receiver
+# ───────────────────────────────────────────────────────────
+#
+# Token-based, dashboard-managed tunnels (no local config for ingress).
+# This file is a template/reference only.
+#
+# IMPORTANT: When using Cloudflare WARP-to-cloudflared tunnels (token auth),
+# the tunnel and ingress rules are managed entirely in the Cloudflare
+# dashboard under Access > Tunnels. The local cloudflared process connects
+# with a tunnel token and pulls its configuration from Cloudflare's control
+# plane. In this mode, /etc/cloudflared/config.yml is NOT used for ingress
+# routing — it only needs to specify the tunnel token.
+#
+# For a traditional named tunnel with local config:
+#   1. cloudflared tunnel login
+#   2. cloudflared tunnel create sunstead-webhook
+#      → prints a Tunnel UUID
+#   3. In Cloudflare dashboard → DNS: add CNAME
+#      webhooks.ease-health.org → <UUID>.cfargotunnel.com
+#   4. Copy this file to /etc/cloudflared/config.yml
+#   5. sudo systemctl enable --now cloudflared
+#
+# ── Traditional named tunnel (local config) ──────────────────
+# tunnel: TUNNEL_UUID
+# credentials-file: /home/server/.cloudflared/TUNNEL_UUID.json
+#
+# ingress:
+#   - hostname: webhooks.ease-health.org
+#     service: http://localhost:8787
+#   - service: http_status:404
+#
+# ── Token-based tunnel (dashboard-managed) ──────────────────
+# If your cloudflared is registered with a tunnel token from the dashboard:
+# tunnel: YOUR_TUNNEL_TOKEN_HERE
+# protocol: http2
+#
+# No ingress rules needed — they are managed in the dashboard.
+# The tunnel will route webhooks.ease-health.org → localhost:8787
+# based on the DNS CNAME pointing to your tunnel.

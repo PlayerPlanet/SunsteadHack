@@ -1,0 +1,16 @@
+[Unit]
+Description=SunsteadHack stack health check
+
+[Service]
+Type=oneshot
+User=server
+WorkingDirectory=/home/server/sunsteadhack
+EnvironmentFile=-/home/server/sunsteadhack/.env
+ExecStart=/home/server/sunsteadhack/scripts/healthcheck.sh
+StandardOutput=journal
+StandardError=journal
+Environment=HOME=/home/server
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

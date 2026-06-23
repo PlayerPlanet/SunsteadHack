@@ -1,0 +1,18 @@
+[Unit]
+Description=SunsteadHack Tangled webhook receiver
+After=network.target
+
+[Service]
+Type=simple
+User=server
+WorkingDirectory=/home/server/sunsteadhack
+# Load optional .env for TANGLED_WEBHOOK_* variables
+EnvironmentFile=-/home/server/sunsteadhack/.env
+ExecStart=/usr/bin/python3 /home/server/sunsteadhack/scripts/tangled_webhook_receiver.py --host 127.0.0.1 --port 8787
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

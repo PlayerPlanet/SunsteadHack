@@ -1,0 +1,32 @@
+#!/bin/bash
+# post-receive hook — SunsteadHack bare repo
+# ──────────────────────────────────────────
+# Server-side hook at /home/server/git/sunsteadhack.git/hooks/post-receive
+#
+# INSTALL on homeserver:
+#   cp deploy/hooks/post-receive /home/server/git/sunsteadhack.git/hooks/post-receive
+#   chmod +x /home/server/git/sunsteadhack.git/hooks/post-receive
+#
+# Push-to-deploy: on push to main, sync working tree and run deploy.sh.
+
+set -uo pipefail
+
+WORK_TREE="/home/server/sunsteadhack"
+GIT_DIR="/home/server/git/sunsteadhack.git"
+DEPLOY_BRANCH="main"
+
+while read -r oldrev newrev refname; do
+    branch="${refname#refs/heads/}"
+
+    # Always sync working tree for pushed branch
+    git --work-tree="$WORK_TREE" --git-dir="$GIT_DIR" checkout -f "$branch"
+
+    if [ "$branch" != "$DEPLOY_BRANCH" ]; then
+        echo ">>> Pushed $branch (not $DEPLOY_BRANCH) — tree updated, no deploy."
+        continue
+    fi
+
+    echo ">>> Deploying $branch ($newrev) ..."
+    cd "$WORK_TREE" || exit 1
+    PROJECT_DIR="$WORK_TREE" bash "$WORK_TREE/scripts/deploy.sh"
+done

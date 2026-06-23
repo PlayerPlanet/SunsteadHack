@@ -52,8 +52,17 @@ python scripts/record_judgment.py \
 | `migraine-risk-core`          | MEDIUM |
 | `operator-playbooks`          | LOW    |
 
+## Homeserver Deployment
+
+The `scripts/tangled_webhook_receiver.py` is a minimal, dependency-free webhook
+receiver that accepts Tangled push webhooks and writes raw event envelopes to
+Stage 0 inbox. See [docs/homeserver-deployment.md](docs/homeserver-deployment.md)
+for full deployment topology, systemd setup, Cloudflare tunnel configuration,
+and Tangled UI instructions.
+
 ## Notes
 
 - All probe runs exit 0; risky flags are recorded in JSON output, not exceptions.
 - Escalation log (`crossings.yaml`) is append-only.
 - No external packages required — pure Python 3 standard library.
+- Webhook receiver uses only Python stdlib (`http.server`).
