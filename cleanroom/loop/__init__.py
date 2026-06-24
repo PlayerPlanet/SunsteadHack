@@ -51,8 +51,11 @@ def run_loop(
         ValueError: If required fields are missing from task_spec or other contracts fail.
     """
     _actions = actions if actions is not None else _default_actions
-    # TODO(integration#1): settle conn sourcing with Story B
-    # For now, allow None (Phase-0 fixtures) or real connection from task_spec
+    # integration#1 (RESOLVED): conn sourcing is pure dependency injection. The caller
+    # (Phase-1 runner / dispatcher) owns the psycopg connection and passes it in
+    # task_spec["conn"]; the loop never opens or closes it. None -> Phase-0 fixture
+    # mode (CannedBenchmark, no live DB). Proven on real Aiven via
+    # scripts/run_phase1_curve.py (first descending p99 curve).
     conn = task_spec.get("conn")
 
     # Initialize baseline and history
