@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cleanroom"
+version = "0.1.0"
+description = "Phase-0 cleanroom autoresearch system — frozen contract surface for async teammates"
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg[binary]>=3.1.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
