@@ -101,5 +101,4 @@ and [`docs/homeserver-deployment.md`](docs/homeserver-deployment.md).
 | [`docs/aiven_agentic_org.md`](docs/aiven_agentic_org.md) | Clean-room / located-autonomy strategy brief |
 | [`docs/solution-directions.md`](docs/solution-directions.md) | Team context: directions, gates, on-site questions |
 | [`docs/gate-1-findings.md`](docs/gate-1-findings.md) | Verified Aiven infra facts (freezability, extensions, GUCs) |
-| [`docs/tangled/`](docs/tangled/) | Tangled / AT Protocol explainability exploration |
 | `cells/`, `scripts/`, `deploy/` | Membrane-crossing probe (governance precursor / fallback) |
