@@ -35,6 +35,9 @@ cleanroom/
 │   ├── kernel/                 # #9: matrix-multiply timing judge (pure Python)
 │   ├── quant/                  # #10: walk-forward OOS Sharpe judge (pure Python)
 │   └── bio/                    # #11: held-out F1 judge, logistic regression (pure Python)
+├── integration/                # Phase 3 wiring (REAL) — C ← B's real Postgres log
+│   └── __init__.py             # PoreModuleAdapter, connect_logclient, seed_if_empty,
+│                               # run_model_axis_comparison, live_dashboard
 └── fixtures/                   # Zero-infra testing harness (REAL)
     ├── __init__.py             # CannedBenchmark, NoOpPore, InMemoryLogClient, DummyProposer
     └── seed_synthetic_log.py   # Synthetic log seeder — builds boundary curves before A/B land
@@ -47,8 +50,9 @@ cleanroom/
 | `types.py` | — | — | REAL (frozen) |
 | `db/schema.sql` | — | — | REAL (frozen) |
 | `loop/`, `actions/` | A | #2 | REAL |
-| `benchmark/`, `pore/`, `logclient/` | B | #3 | stub — blocks Phase 3 |
-| `boundary/`, `dashboard/`, `modelaxis/`, `fixtures/seed_synthetic_log.py` | C | #4 | REAL (Phase 0 on synthetic data) |
+| `benchmark/`, `pore/`, `logclient/` | B | #3 | REAL |
+| `boundary/`, `dashboard/`, `modelaxis/`, `fixtures/seed_synthetic_log.py` | C | #4 | REAL (Phase 0 + Phase 3) |
+| `integration/` | C+B | #4/#3 | REAL — Phase 3 wiring (C ← B's PgLogClient) |
 | `domains/kernel/` | Epic | #9 | REAL |
 | `domains/quant/` | Epic | #10 | REAL |
 | `domains/bio/` | Epic | #11 | REAL |
@@ -85,13 +89,29 @@ Measures where the agent's autonomy boundary is and makes the manifesto's bet vi
 ### Phase status
 
 - **Phase 0 (done):** all four modules implemented and running on synthetic data.
-- **Phase 3 (blocked on B):** swap `InMemoryLogClient` for B's real Postgres logclient — no code changes needed in this package.
+- **Phase 3 (done):** `cleanroom/integration/` wires C to B's real `PgLogClient`.
+  Integration #2 — C reads from the live Postgres log; integration #3 — model axis
+  runs via `run_model_axis_comparison` (swap `DummyProposer` → `ClaudeProposer` once
+  `ANTHROPIC_API_KEY` is available).
 
 ### Run the dashboard
 
+Phase 0 — synthetic data, no infra:
 ```bash
 cd SunsteadHack
 PYTHONPATH=. python3 cleanroom/fixtures/seed_synthetic_log.py
+```
+
+Phase 3 — live Aiven Postgres:
+```bash
+cd SunsteadHack
+export CLEANROOM_PG_DSN="postgres://..."
+.venv/bin/python3 -m cleanroom.integration   # seeds if empty, renders live dashboard
+```
+
+Phase 3 integration tests:
+```bash
+CLEANROOM_PG_DSN="postgres://..." .venv/bin/python3 tests/test_phase3.py
 ```
 
 ---
