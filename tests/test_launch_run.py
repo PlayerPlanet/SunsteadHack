@@ -127,8 +127,9 @@ class TestLaunchRun(unittest.TestCase):
         net_config = call_args.kwargs.get('networkConfiguration', {})
         awsvpc = net_config.get('awsvpcConfiguration', {})
 
-        # Should NOT assign public IP (uses NAT Gateway)
-        self.assertEqual(awsvpc['assignPublicIp'], 'DISABLED')
+        # Public subnets + ENABLED gives egress without a NAT Gateway; the
+        # egress-only security group is what blocks all inbound traffic.
+        self.assertEqual(awsvpc['assignPublicIp'], 'ENABLED')
 
         # Should include subnets and security groups
         self.assertEqual(awsvpc['subnets'], ['subnet-abc123', 'subnet-def456'])

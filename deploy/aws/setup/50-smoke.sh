@@ -3,6 +3,9 @@
 # Launches one proposer task, waits for completion, retrieves logs, validates output.
 
 set -euo pipefail
+# Git Bash on Windows mangles leading-slash args (e.g. CloudWatch log-group
+# names like /ecs/...). Harmless no-op on Linux/macOS.
+export MSYS_NO_PATHCONV=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/../config.env"
@@ -30,11 +33,11 @@ TASK_ARN=$(aws ecs run-task \
     --cluster "$ECS_CLUSTER_NAME" \
     --task-definition "$TASK_FAMILY_NAME" \
     --launch-type FARGATE \
-    --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ID_1,$SUBNET_ID_2],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=DISABLED}" \
+    --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ID_1,$SUBNET_ID_2],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
     --query 'tasks[0].taskArn' \
     --output text)
 
-TASK_ID=$(echo "$TASK_ARN" | rev | cut -d'/' -f1 | rev)
+TASK_ID="${TASK_ARN##*/}"   # task id = last path segment (no `rev` dependency)
 echo "✓ Task launched: $TASK_ARN"
 echo "Task ID: $TASK_ID"
 echo ""

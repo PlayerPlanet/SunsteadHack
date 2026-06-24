@@ -4,6 +4,7 @@
 # Idempotent: creates a new revision if the task def already exists.
 
 set -euo pipefail
+export MSYS_NO_PATHCONV=1  # Git Bash: don't mangle slash-args like /ecs/... (no-op elsewhere)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../" && pwd)"
@@ -66,6 +67,23 @@ cat "$TASKDEF_FILE" \
     > "$TEMP_TASKDEF"
 
 echo "✓ Task definition processed."
+
+# Resolve the REAL secret ARNs and substitute them into the task def. ECS
+# `valueFrom` requires the full secret ARN (with its random 6-char suffix) — the
+# `-*` glob used in the IAM policy is NOT valid here. Requires 10-secrets.sh first.
+API_ARN=$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+    --secret-id "$SECRET_ANTHROPIC_API_KEY_NAME" --query 'ARN' --output text)
+DSN_ARN=$(aws secretsmanager describe-secret --region "$AWS_REGION" \
+    --secret-id "$SECRET_DB_DSN_NAME" --query 'ARN' --output text)
+python - "$TEMP_TASKDEF" "$API_ARN" "$DSN_ARN" "$SECRET_ANTHROPIC_API_KEY_NAME" "$SECRET_DB_DSN_NAME" <<'PY'
+import sys
+f, api, dsn, apiname, dsnname = sys.argv[1:6]
+s = open(f).read()
+s = s.replace(f"secret:{apiname}-*", f"secret:{api.split(':secret:')[-1]}")
+s = s.replace(f"secret:{dsnname}-*", f"secret:{dsn.split(':secret:')[-1]}")
+open(f, "w").write(s)
+PY
+echo "✓ Resolved real secret ARNs into valueFrom."
 echo ""
 
 # ---- Step 3: Create CloudWatch Logs group --------
@@ -93,7 +111,7 @@ echo "Step 4: Registering task definition..."
 
 TASKDEF_ARN=$(aws ecs register-task-definition \
     --region "$AWS_REGION" \
-    --cli-input-json "file://${TEMP_TASKDEF}" \
+    --cli-input-json "$(cat "${TEMP_TASKDEF}")" \
     --query 'taskDefinition.taskDefinitionArn' \
     --output text)
 

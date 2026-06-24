@@ -1,0 +1,2 @@
+# Operator-specific real config (account id, subnet/SG ids). Use config.env.example as the template.
+config.env

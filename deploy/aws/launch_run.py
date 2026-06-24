@@ -116,7 +116,7 @@ def launch_run(
         "awsvpcConfiguration": {
             "subnets": subnets,
             "securityGroups": security_groups,
-            "assignPublicIp": "DISABLED",  # Use NAT Gateway for egress
+            "assignPublicIp": "ENABLED",  # Public subnets (no NAT); egress-only SG blocks inbound
         }
     }
 

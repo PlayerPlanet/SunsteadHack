@@ -2,8 +2,13 @@
 # Story E AWS Deployment: IAM Setup
 # Creates task execution role and task role with least-privilege policies.
 # Idempotent: safe to re-run.
+#
+# NOTE: IAM JSON is passed inline via "$(cat ...)" rather than file://<path>,
+# because aws-cli cannot load file:// paths that contain non-ASCII characters
+# (e.g. a Windows home dir like C:\Users\Käyttäjä\...).
 
 set -euo pipefail
+export MSYS_NO_PATHCONV=1  # Git Bash: don't mangle any slash-args (no-op elsewhere)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${SCRIPT_DIR}/../config.env"
@@ -49,7 +54,7 @@ else
     # Create role with trust policy
     aws iam create-role \
         --role-name "$TASK_EXECUTION_ROLE_NAME" \
-        --assume-role-policy-document file://"${IAM_DIR}/ecs-tasks-trust-policy.json"
+        --assume-role-policy-document "$(cat "${IAM_DIR}/ecs-tasks-trust-policy.json")"
 
     echo "✓ Task execution role created."
 fi
@@ -65,7 +70,7 @@ substitute_placeholders "${IAM_DIR}/task-execution-role-policy.json" "$TEMP_POLI
 aws iam put-role-policy \
     --role-name "$TASK_EXECUTION_ROLE_NAME" \
     --policy-name "ExecutionRolePolicy" \
-    --policy-document "file://${TEMP_POLICY}"
+    --policy-document "$(cat "${TEMP_POLICY}")"
 
 rm "$TEMP_POLICY"
 echo "✓ Execution role policy attached."
@@ -82,7 +87,7 @@ else
     # Create role with trust policy
     aws iam create-role \
         --role-name "$TASK_ROLE_NAME" \
-        --assume-role-policy-document file://"${IAM_DIR}/ecs-tasks-trust-policy.json"
+        --assume-role-policy-document "$(cat "${IAM_DIR}/ecs-tasks-trust-policy.json")"
 
     echo "✓ Task role created."
 fi
@@ -94,7 +99,7 @@ echo "Step 4: Attaching task role policy (explicit deny-by-default)..."
 aws iam put-role-policy \
     --role-name "$TASK_ROLE_NAME" \
     --policy-name "ExplicitDeny" \
-    --policy-document file://"${IAM_DIR}/task-role-policy.json"
+    --policy-document "$(cat "${IAM_DIR}/task-role-policy.json")"
 
 echo "✓ Task role policy attached (deny-by-default)."
 echo ""

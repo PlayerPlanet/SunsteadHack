@@ -115,11 +115,13 @@ else
         --port 443 \
         --cidr 0.0.0.0/0
 
+    # DB port: Aiven Postgres uses a NON-standard port (e.g. 11244), NOT 5432.
+    # Set DB_PORT in config.env to the real service port or the task cannot reach it.
     aws ec2 authorize-security-group-egress \
         --region "$AWS_REGION" \
         --group-id "$SG_ID" \
         --protocol tcp \
-        --port 5432 \
+        --port "${DB_PORT:-5432}" \
         --cidr 0.0.0.0/0
 
     # AWS attaches a default allow-all egress rule (0.0.0.0/0, all protocols) to
@@ -132,7 +134,7 @@ else
         --ip-permissions 'IpProtocol=-1,IpRanges=[{CidrIp=0.0.0.0/0}]' \
         >/dev/null 2>&1 || echo "  (no default allow-all rule to revoke)"
 
-    echo "✓ Egress rules added (443, 5432); default allow-all revoked."
+    echo "✓ Egress rules added (443, ${DB_PORT:-5432}); default allow-all revoked."
     echo ""
     echo "UPDATE config.env with:"
     echo "SECURITY_GROUP_ID=$SG_ID"
@@ -143,7 +145,7 @@ echo "===== Network Setup Complete ====="
 echo "Security Group: $SECURITY_GROUP_ID"
 echo ""
 echo "CONFIGURATION:"
-echo "- Subnets: PRIVATE (with NAT Gateway for outbound)"
+echo "- Subnets: PUBLIC (default-VPC); tasks run with assignPublicIp=ENABLED for egress (no NAT)"
 echo "- Security Group: EGRESS-ONLY (no inbound rules)"
-echo "- Outbound: 443 (Anthropic API), 5432 (Postgres)"
-echo "- Public IP: NOT assigned (uses NAT Gateway for egress)"
+echo "- Outbound: 443 (Anthropic API), ${DB_PORT:-5432} (Postgres / Aiven)"
+echo "- Inbound: NONE"
