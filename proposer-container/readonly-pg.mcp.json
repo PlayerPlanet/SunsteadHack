@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pg": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://researcher_ro:readonly@host.docker.internal:55432/postgres"
+      ]
+    }
+  }
+}
