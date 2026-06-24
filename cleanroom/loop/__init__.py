@@ -16,7 +16,7 @@ Control flow:
 
 from dataclasses import asdict
 
-from cleanroom import actions
+from cleanroom import actions as _default_actions
 
 
 def run_loop(
@@ -26,6 +26,7 @@ def run_loop(
     benchmark,
     pore,
     logclient,
+    actions=None,
     iterations: int = 10,
 ) -> None:
     """Run the optimization loop.
@@ -40,11 +41,16 @@ def run_loop(
         benchmark: Object with run_benchmark, check_correctness, is_within_noise methods.
         pore: Object with evaluate(candidate) -> PoreResult method.
         logclient: LogClient protocol for write_experiment, write_crossing, etc.
+        actions: Action adapter exposing apply(conn, candidate) / rollback(conn, candidate).
+            Defaults to cleanroom.actions (index/guc). Domain benchmarks (epic #8 —
+            quant/bio/kernel) inject their own adapter so the same loop drives a
+            different action space without changing this function.
         iterations: Number of optimization iterations (default 10).
 
     Raises:
         ValueError: If required fields are missing from task_spec or other contracts fail.
     """
+    _actions = actions if actions is not None else _default_actions
     # TODO(integration#1): settle conn sourcing with Story B
     # For now, allow None (Phase-0 fixtures) or real connection from task_spec
     conn = task_spec.get("conn")
@@ -97,7 +103,7 @@ def run_loop(
             continue
 
         # Apply candidate
-        actions.apply(conn, candidate)
+        _actions.apply(conn, candidate)
 
         # Run benchmark
         result = benchmark.run_benchmark(
@@ -113,15 +119,15 @@ def run_loop(
         if result.p99_ms > baseline["p99_ms"]:
             # Regression
             decision = "rollback"
-            actions.rollback(conn, candidate)
+            _actions.rollback(conn, candidate)
         elif within_noise:
             # Improvement but within noise
             decision = "discard"
-            actions.rollback(conn, candidate)
+            _actions.rollback(conn, candidate)
         elif not correctness_ok:
             # Correctness failure
             decision = "rollback"
-            actions.rollback(conn, candidate)
+            _actions.rollback(conn, candidate)
         else:
             # Genuine improvement
             decision = "keep"
