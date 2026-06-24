@@ -347,20 +347,17 @@ class Operator:
         )
 
         # Check if this was a register_task escalation and decision is approve
-        # For Phase 0, we'll scan the in-memory logclient.crossings directly
-        # TODO(integration#4): Replace with logclient.read_crossings(filter={...})
-        if hasattr(logclient, "crossings"):
-            for crossing in logclient.crossings:
-                if crossing.get("id") == crossing_id:
-                    action = crossing.get("action", {})
-                    if "register_task" in action and decision in (
-                        "approve",
-                        "allow",
-                    ):
-                        task_id = action["register_task"].get("task_id")
-                        if task_id:
-                            self.registry.activate(task_id)
-                    break
+        crossings = logclient.read_crossings(filter={"id": crossing_id})
+        if crossings:
+            crossing = crossings[0]
+            action = crossing.get("action", {})
+            if "register_task" in action and decision in (
+                "approve",
+                "allow",
+            ):
+                task_id = action["register_task"].get("task_id")
+                if task_id:
+                    self.registry.activate(task_id)
 
     def read_curve(self, task_id: str, *, logclient) -> list[dict]:
         """Read performance curve (all experiments for a task).
