@@ -19,7 +19,7 @@ cleanroom/
 ├── loop/                       # STUB: Story A, issue #2 (main orchestration)
 │   └── __init__.py             # run_loop(task_spec, ...)
 ├── actions/                    # STUB: Story A, issue #2
-│   └── __init__.py             # apply(), rollback() — index discovery via hypopg
+│   └── __init__.py             # apply(), rollback() — index discovery via real CREATE/DROP INDEX (hypopg N/A, see issue #2)
 ├── boundary/                   # STUB: Story C, issue #4 (escalation analysis)
 │   └── __init__.py             # escalation_rate_by_drift(), escalations_per_unit_work()
 ├── dashboard/                  # STUB: Story C, issue #4
