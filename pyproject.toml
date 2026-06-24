@@ -16,3 +16,11 @@ dependencies = [
 dev = [
     "pytest>=7.0",
 ]
+proposer = [
+    "anthropic>=0.40",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "golden: tests that hit the real Anthropic API",
+]
