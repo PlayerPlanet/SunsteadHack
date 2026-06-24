@@ -50,11 +50,7 @@ def run_loop(
     Raises:
         ValueError: If required fields are missing from task_spec or other contracts fail.
     """
-    # Resolve the action adapter: default to the builtin index/guc actions,
-    # or use a domain-specific adapter injected by the caller (epic #8).
-    if actions is None:
-        actions = _default_actions
-
+    _actions = actions if actions is not None else _default_actions
     # TODO(integration#1): settle conn sourcing with Story B
     # For now, allow None (Phase-0 fixtures) or real connection from task_spec
     conn = task_spec.get("conn")
@@ -107,7 +103,7 @@ def run_loop(
             continue
 
         # Apply candidate
-        actions.apply(conn, candidate)
+        _actions.apply(conn, candidate)
 
         # Run benchmark
         result = benchmark.run_benchmark(
@@ -123,15 +119,15 @@ def run_loop(
         if result.p99_ms > baseline["p99_ms"]:
             # Regression
             decision = "rollback"
-            actions.rollback(conn, candidate)
+            _actions.rollback(conn, candidate)
         elif within_noise:
             # Improvement but within noise
             decision = "discard"
-            actions.rollback(conn, candidate)
+            _actions.rollback(conn, candidate)
         elif not correctness_ok:
             # Correctness failure
             decision = "rollback"
-            actions.rollback(conn, candidate)
+            _actions.rollback(conn, candidate)
         else:
             # Genuine improvement
             decision = "keep"
