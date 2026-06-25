@@ -1,96 +1,256 @@
-"""Thin MCP adapter for the Operator.
+"""MCP server for the SunsteadHack control plane operator.
 
-PHASE-0 STUB: This module defines the tool surface for integration with an MCP server.
-No MCP server library is currently wired. This is a documented placeholder.
+LEGITIMACY BOUNDARY: This server exposes the operator surface (task registration,
+run dispatch, escalation adjudication) but NEVER exposes scoring, benchmarking, or
+silent mutations. Humans remain in the loop for governance decisions via the MCP
+adjudicate tool (when a task escalates to requires_human_judgment).
 
-When an MCP server is available, implement these tools:
-  - list_tasks() -> list[TaskSpec]
-  - get_task(task_id: str) -> TaskSpec | None
-  - register_task(spec_json: str, *, pore, logclient) -> str
-  - dispatch_run(task_id: str, model: str, iterations: int) -> str
-  - get_run(run_id: str) -> RunStatus | None
-  - list_runs(filter_json: str | None) -> list[RunStatus]
-  - cancel_run(run_id: str) -> None
-  - pending_escalations(*, logclient) -> list[dict]
-  - adjudicate(crossing_id: int, decision: str, *, logclient) -> None
-  - read_curve(task_id: str, *, logclient) -> list[dict]
-
-All methods delegate to Operator instance.
+Tools are thin wrappers over operator methods, translating JSON inputs/outputs for MCP.
+The tool logic is defined as module-level functions (tool_*) so they can be unit-tested
+independently of the mcp runtime. The `build_server()` function wires them to FastMCP.
 """
 
-__doc__ = """
-MCP Tool Definitions for Control Plane
+import dataclasses
+import json
+from typing import Any
 
-Tool: list_tasks
-  Description: List all active task specifications
-  Input: (none)
-  Output: list of TaskSpec objects (as JSON)
-
-Tool: get_task
-  Description: Retrieve a task by ID
-  Input: task_id (string)
-  Output: TaskSpec object (as JSON) or null
-
-Tool: register_task
-  Description: Register a new task (governance-gated)
-  Input: spec_json (string), injected pore/logclient
-  Output: task_id (string)
-
-Tool: dispatch_run
-  Description: Dispatch a run (fire-and-return, background thread)
-  Input: task_id (string), model (string), iterations (int, default 10)
-  Output: run_id (string)
-
-Tool: get_run
-  Description: Get run status (pollable)
-  Input: run_id (string)
-  Output: RunStatus object (as JSON) or null
-
-Tool: list_runs
-  Description: List runs, optionally filtered
-  Input: filter_json (optional string, e.g. '{"state":"running"}')
-  Output: list of RunStatus objects (as JSON)
-
-Tool: cancel_run
-  Description: Request cancellation of a run
-  Input: run_id (string)
-  Output: (none)
-
-Tool: pending_escalations
-  Description: List crossings requiring human judgment
-  Input: (none)
-  Output: list of crossing dicts (as JSON)
-
-Tool: adjudicate
-  Description: Human decision on a crossing
-  Input: crossing_id (int), decision (string), rationale (optional string)
-  Output: (none)
-
-Tool: read_curve
-  Description: Read performance curve for a task
-  Input: task_id (string)
-  Output: list of experiment dicts (as JSON)
-"""
+from cleanroom.control.registry.types import TaskSpec
+from cleanroom.control.server.wiring import (
+    make_operator,
+    make_logclient,
+    make_dispatch_ctx,
+    governance_pore,
+)
 
 
-# Phase-0 Stub: Uncomment and implement when MCP server library is available.
-#
-# from cleanroom.control.ops import Operator, OperatorContext
-#
-# class ControlPlaneTools:
-#     """MCP tool implementations wrapping the Operator."""
-#
-#     def __init__(self, operator: Operator):
-#         self.operator = operator
-#
-#     def list_tasks(self):
-#         """List all active tasks."""
-#         tasks = self.operator.list_tasks()
-#         return [task.__dict__ for task in tasks]
-#
-#     def get_task(self, task_id: str):
-#         """Get task by ID."""
-#         task = self.operator.get_task(task_id)
-#         return task.__dict__ if task else None
-#
-#     # ... etc. for each operator method
+# ==================== Tool Logic Functions (Unit-Testable) ====================
+
+
+def tool_list_tasks() -> list[dict]:
+    """List all active tasks.
+
+    Returns:
+        List of task dicts.
+    """
+    operator = make_operator()
+    tasks = operator.list_tasks()
+    return [dataclasses.asdict(t) for t in tasks]
+
+
+def tool_get_task(task_id: str) -> dict | None:
+    """Get a task by ID.
+
+    Args:
+        task_id: Task identifier.
+
+    Returns:
+        Task dict or None.
+    """
+    operator = make_operator()
+    task = operator.get_task(task_id)
+    return dataclasses.asdict(task) if task else None
+
+
+def tool_register_task(spec_json: str) -> str:
+    """Register a new task (governance-gated).
+
+    Args:
+        spec_json: Task spec as JSON string.
+
+    Returns:
+        task_id (string).
+
+    Raises:
+        ValueError: If spec_json is invalid.
+    """
+    try:
+        spec_dict = json.loads(spec_json)
+        spec = TaskSpec(**spec_dict)
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        raise ValueError(f"Invalid task spec JSON: {e}")
+
+    operator = make_operator()
+    logclient = make_logclient()
+    task_id = operator.register_task(spec, pore=governance_pore(), logclient=logclient)
+    return task_id
+
+
+def tool_dispatch_run(task_id: str, model: str, iterations: int = 10) -> str:
+    """Dispatch a run (fire-and-return).
+
+    Args:
+        task_id: Task identifier.
+        model: Model name for proposer.
+        iterations: Number of iterations (default 10).
+
+    Returns:
+        run_id (string).
+    """
+    operator = make_operator()
+    logclient = make_logclient()
+    ctx = make_dispatch_ctx(logclient)
+    run_id = operator.dispatch_run(
+        task_id, model=model, iterations=iterations, ctx=ctx
+    )
+    return run_id
+
+
+def tool_get_run(run_id: str) -> dict | None:
+    """Get run status by ID.
+
+    Args:
+        run_id: Run identifier.
+
+    Returns:
+        RunStatus dict or None.
+    """
+    operator = make_operator()
+    status = operator.get_run(run_id)
+    return dataclasses.asdict(status) if status else None
+
+
+def tool_list_runs(filter_json: str | None = None) -> list[dict]:
+    """List runs, optionally filtered.
+
+    Args:
+        filter_json: Optional filter as JSON string (e.g., '{"state":"running"}').
+
+    Returns:
+        List of RunStatus dicts.
+
+    Raises:
+        ValueError: If filter_json is invalid.
+    """
+    operator = make_operator()
+    filter_dict = None
+    if filter_json:
+        try:
+            filter_dict = json.loads(filter_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid filter JSON: {e}")
+    runs = operator.list_runs(filter=filter_dict)
+    return [dataclasses.asdict(r) for r in runs]
+
+
+def tool_cancel_run(run_id: str) -> None:
+    """Request cancellation of a run.
+
+    Args:
+        run_id: Run identifier.
+    """
+    operator = make_operator()
+    operator.cancel_run(run_id)
+
+
+def tool_pending_escalations() -> list[dict]:
+    """List pending escalations (crossings requiring human judgment).
+
+    Returns:
+        List of crossing dicts.
+    """
+    operator = make_operator()
+    logclient = make_logclient()
+    return operator.pending_escalations(logclient)
+
+
+def tool_adjudicate(
+    crossing_id: int,
+    decision: str,
+    rationale: str | None = None,
+    judge: str = "human",
+) -> None:
+    """Human decision on a crossing.
+
+    Args:
+        crossing_id: Crossing ID.
+        decision: Decision (approve/reject/allow/block).
+        rationale: Optional explanation.
+        judge: Judge identifier (default 'human').
+    """
+    operator = make_operator()
+    logclient = make_logclient()
+    operator.adjudicate(
+        crossing_id,
+        decision,
+        rationale=rationale,
+        judge=judge,
+        logclient=logclient,
+    )
+
+
+def tool_read_curve(task_id: str) -> list[dict]:
+    """Read performance curve for a task.
+
+    Args:
+        task_id: Task identifier.
+
+    Returns:
+        List of experiment dicts.
+    """
+    operator = make_operator()
+    logclient = make_logclient()
+    return operator.read_curve(task_id, logclient=logclient)
+
+
+# ==================== MCP Server Setup ====================
+
+
+def build_server() -> "Any":
+    """Build and return the MCP FastMCP server with registered tools.
+
+    Lazy-imports mcp so the module can be imported without mcp present.
+
+    Returns:
+        The FastMCP server instance.
+    """
+    try:
+        from mcp.server.fastmcp import FastMCP
+    except ImportError:
+        raise ImportError(
+            "mcp library not found. Install it with: pip install 'cleanroom[control]' (or pip install mcp)"
+        )
+
+    server = FastMCP(
+        name="sunstead-control",
+        instructions="Operate the SunsteadHack autoresearch control plane",
+    )
+
+    # Register tools (FastMCP API: add_tool(fn, name=..., description=...)).
+    # Explicit names keep the operator surface clean (no tool_ prefix) and match
+    # the frozen tool surface in issue #5 and the plugin slash commands.
+    server.add_tool(tool_list_tasks, name="list_tasks", description="List all active tasks")
+    server.add_tool(tool_get_task, name="get_task", description="Get a task by ID")
+    server.add_tool(
+        tool_register_task,
+        name="register_task",
+        description="Register a new task (governance-gated; may escalate for human judgment)",
+    )
+    server.add_tool(
+        tool_dispatch_run,
+        name="dispatch_run",
+        description="Dispatch a run (fire-and-return); returns run_id",
+    )
+    server.add_tool(tool_get_run, name="get_run", description="Get run status (pollable)")
+    server.add_tool(tool_list_runs, name="list_runs", description="List runs, optionally filtered")
+    server.add_tool(tool_cancel_run, name="cancel_run", description="Request cancellation of a run")
+    server.add_tool(
+        tool_pending_escalations,
+        name="pending_escalations",
+        description="List escalations requiring human judgment",
+    )
+    server.add_tool(
+        tool_adjudicate, name="adjudicate", description="Write a human judgment on a crossing"
+    )
+    server.add_tool(tool_read_curve, name="read_curve", description="Read performance curve for a task")
+
+    return server
+
+
+def main():
+    """Entry point: run the stdio MCP server."""
+    server = build_server()
+    server.run()
+
+
+if __name__ == "__main__":
+    main()

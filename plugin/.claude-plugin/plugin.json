@@ -1,0 +1,13 @@
+{
+  "name": "sunstead-control",
+  "version": "1.0.0",
+  "description": "Operate the SunsteadHack autoresearch control plane from Claude — dispatch runs, watch curves, adjudicate escalations",
+  "author": "SunsteadHack Team",
+  "commands": [
+    "dispatch",
+    "runs",
+    "escalations",
+    "adjudicate",
+    "curve"
+  ]
+}
