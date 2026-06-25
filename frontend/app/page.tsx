@@ -15,7 +15,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetch("/api/stats").then((r) => r.json()).then(setStats);
     fetch("/api/boundary").then((r) => r.json()).then(setBoundary);
-    fetch("/api/runs").then((r) => r.json()).then((d) => setRuns(d.runs ?? []));
+    fetch("/api/runs").then((r) => r.json()).then((d) => setRuns(Array.isArray(d.runs) ? d.runs : []));
   }, []);
 
   const p99Improvement = stats?.bestP99 && stats?.baselineP99

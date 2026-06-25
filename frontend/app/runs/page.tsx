@@ -33,7 +33,7 @@ function RegisterForm({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const [result, setResult] = useState<{ task_id?: string; state?: string; error?: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/tasks").then((r) => r.json()).then((d) => setWorkloads(d.workloads ?? []));
+    fetch("/api/tasks").then((r) => r.json()).then((d) => setWorkloads(Array.isArray(d.workloads) ? d.workloads : []));
   }, []);
 
   async function submit(e: React.FormEvent) {
@@ -165,7 +165,7 @@ function RunsContent() {
   const [showForm, setShowForm] = useState(false);
 
   const loadRuns = () =>
-    fetch("/api/runs").then((r) => r.json()).then((d) => setRuns(d.runs ?? []));
+    fetch("/api/runs").then((r) => r.json()).then((d) => setRuns(Array.isArray(d.runs) ? d.runs : []));
 
   useEffect(() => { loadRuns(); }, []);
 
@@ -174,7 +174,7 @@ function RunsContent() {
     setCurve([]);
     fetch(`/api/runs?task_id=${selected}`)
       .then((r) => r.json())
-      .then((d) => setCurve(d.curve ?? []));
+      .then((d) => setCurve(Array.isArray(d.curve) ? d.curve : []));
   }, [selected]);
 
   const baseline = curve[0]?.baseline_p99 ?? undefined;

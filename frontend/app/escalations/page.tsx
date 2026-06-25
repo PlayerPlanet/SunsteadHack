@@ -50,7 +50,7 @@ export default function EscalationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = () =>
-    fetch("/api/escalations").then((r) => r.json()).then((d) => setEscalations(d.escalations ?? []));
+    fetch("/api/escalations").then((r) => r.json()).then((d) => setEscalations(Array.isArray(d.escalations) ? d.escalations : []));
 
   useEffect(() => { load(); }, []);
 
