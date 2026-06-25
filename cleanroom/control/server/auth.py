@@ -31,6 +31,7 @@ import jwt
 from cleanroom.control.server.roles import (
     ROLE_ALLOWLIST,
     ROLE_OPERATOR,
+    ROLE_PROPOSER,
     ROLE_READONLY,
     RoleError,
     validate_role,
@@ -57,6 +58,31 @@ TOOL_SCOPES: dict[str, str] = {
     "cancel_run": SCOPE_DISPATCH,
     "adjudicate": SCOPE_ADJUDICATE,
 }
+
+# The operator scopes each brokered DB role implies. Used when a caller presents NO
+# explicit control:* scope (the typical dashboard user, whose access token only carries
+# openid/email + cognito:groups): their group -> db_role then *implies* the matching
+# scopes, so group membership alone authorizes the right tools. A machine caller that
+# presents precise control:* scopes (client_credentials) overrides this — see
+# principal_from_claims. Operator can adjudicate (see roles.py: ROLE_OPERATOR).
+_ROLE_SCOPES: dict[str, frozenset[str]] = {
+    ROLE_READONLY: frozenset({SCOPE_READ}),
+    ROLE_PROPOSER: frozenset({SCOPE_READ, SCOPE_REGISTER}),
+    ROLE_OPERATOR: frozenset({SCOPE_READ, SCOPE_REGISTER, SCOPE_DISPATCH, SCOPE_ADJUDICATE}),
+}
+
+# Cognito group -> brokered DB role. A user's `cognito:groups` (present in the access
+# token by default — no token customization / paid feature plan required) maps here.
+# No group => default_role (least privilege). Override per IdP via group_role_map.
+DEFAULT_GROUP_ROLE_MAP: dict[str, str] = {
+    "sunstead-operators": ROLE_OPERATOR,
+    "sunstead-proposers": ROLE_PROPOSER,
+    "sunstead-viewers": ROLE_READONLY,
+}
+
+# Privilege order for resolving a caller who belongs to several mapped groups: grant
+# the most privileged role (union-of-grants, the conventional group semantics).
+_ROLE_RANK: dict[str, int] = {ROLE_READONLY: 0, ROLE_PROPOSER: 1, ROLE_OPERATOR: 2}
 
 
 class AuthError(Exception):
@@ -98,8 +124,11 @@ class OAuthResourceConfig:
     scopes_claim: str = "scope"         # space-delimited string OR list; "scp" also honored
     tenant_claim: str = "tenant"
     role_claim: str = "db_role"         # an explicit role claim, if the AS emits one
-    # tenant -> Postgres role; used when no explicit role_claim is present.
+    groups_claim: str = "cognito:groups"  # IdP group membership -> role (Cognito default)
+    # tenant -> Postgres role; used when no explicit role_claim/group is present.
     role_map: dict[str, str] = field(default_factory=dict)
+    # group -> Postgres role; empty => DEFAULT_GROUP_ROLE_MAP.
+    group_role_map: dict[str, str] = field(default_factory=dict)
     default_role: str = ROLE_READONLY   # least privilege when nothing else matches
 
     @classmethod
@@ -125,6 +154,7 @@ class OAuthResourceConfig:
             scopes_claim=e.get("OAUTH_SCOPES_CLAIM", "scope"),
             tenant_claim=e.get("OAUTH_TENANT_CLAIM", "tenant"),
             role_claim=e.get("OAUTH_ROLE_CLAIM", "db_role"),
+            groups_claim=e.get("OAUTH_GROUPS_CLAIM", "cognito:groups"),
             default_role=e.get("OAUTH_DEFAULT_ROLE", ROLE_READONLY),
         )
 
@@ -210,7 +240,9 @@ class TokenValidator:
             scopes_claim=cfg.scopes_claim,
             tenant_claim=cfg.tenant_claim,
             role_claim=cfg.role_claim,
+            groups_claim=cfg.groups_claim,
             role_map=cfg.role_map,
+            group_role_map=cfg.group_role_map or None,
             default_role=cfg.default_role,
             strict_role=True,
         )
@@ -218,7 +250,8 @@ class TokenValidator:
 
 def principal_from_claims(
     claims: dict, *, scopes_claim: str = "scope", tenant_claim: str = "tenant",
-    role_claim: str = "db_role", role_map: dict | None = None,
+    role_claim: str = "db_role", groups_claim: str = "cognito:groups",
+    role_map: dict | None = None, group_role_map: dict | None = None,
     default_role: str = ROLE_READONLY, strict_role: bool = True,
 ) -> Principal:
     """Map already-decoded JWT claims to a Principal.
@@ -228,11 +261,22 @@ def principal_from_claims(
     decodes). `strict_role=True` rejects an unprovisioned role claim (the validator
     path); `strict_role=False` falls back to least privilege instead of erroring (the
     runtime path, where AgentCore has already authenticated the caller).
+
+    Role resolution, highest precedence first:
+      1. an explicit `role_claim` (e.g. a pre-token-Lambda `db_role`, or a machine
+         caller that names its role) — strict_role decides over-asks;
+      2. `groups_claim` (Cognito group membership) via group_role_map — this is how a
+         user who *registered on the dashboard* gets a role from their group, with no
+         token customization required;
+      3. `tenant`/client_id via role_map;
+      4. default_role.
     """
     role_map = role_map or {}
+    group_role_map = DEFAULT_GROUP_ROLE_MAP if group_role_map is None else group_role_map
     scopes = _extract_scopes(claims, scopes_claim)
     tenant = claims.get(tenant_claim) or claims.get("client_id") or claims.get("azp")
     raw = claims.get(role_claim)
+    group_role = _role_from_groups(claims, groups_claim, group_role_map)
     if raw:
         try:
             db_role = validate_role(raw)
@@ -242,17 +286,48 @@ def principal_from_claims(
                 # not a silent downgrade — surfacing it beats quietly over-granting.
                 raise AuthError(403, "insufficient_scope", str(exc)) from exc
             db_role = validate_role(default_role)
+    elif group_role is not None:
+        db_role = validate_role(group_role)
     elif tenant and tenant in role_map:
         db_role = validate_role(role_map[tenant])
     else:
         db_role = validate_role(default_role)
+    # Effective scopes: a caller that presents precise control:* scopes (a machine
+    # client_credentials token) keeps exactly those — least privilege for automation.
+    # A caller with none (a dashboard user, whose token carries only openid/email +
+    # groups) gets the scopes implied by their resolved db_role. Non-control scopes
+    # (openid/email/aws.cognito.*) never grant operator tools.
+    control_scopes = {s for s in scopes if s.startswith("control:")}
+    effective = control_scopes or _ROLE_SCOPES.get(db_role, frozenset())
     return Principal(
         subject=claims.get("sub") or "unknown",
         tenant=tenant,
-        scopes=frozenset(scopes),
+        scopes=frozenset(effective),
         db_role=db_role,
         claims=claims,
     )
+
+
+def _role_from_groups(claims: dict, groups_claim: str, group_role_map: dict) -> str | None:
+    """Resolve a brokered role from IdP group membership, or None if no group maps.
+
+    Cognito emits `cognito:groups` as a JSON list in the access token; tolerate a
+    space/comma-delimited string too. A caller in several mapped groups gets the most
+    privileged mapped role (see _ROLE_RANK).
+    """
+    raw = claims.get(groups_claim)
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        groups = [g for g in raw.replace(",", " ").split() if g]
+    elif isinstance(raw, (list, tuple)):
+        groups = [str(g) for g in raw]
+    else:
+        return None
+    mapped = [group_role_map[g] for g in groups if g in group_role_map]
+    if not mapped:
+        return None
+    return max(mapped, key=lambda r: _ROLE_RANK.get(r, -1))
 
 
 def _extract_scopes(claims: dict, scopes_claim: str) -> set[str]:
@@ -262,10 +337,15 @@ def _extract_scopes(claims: dict, scopes_claim: str) -> set[str]:
     if val is None:
         return set()
     if isinstance(val, str):
-        return {s for s in val.split() if s}
-    if isinstance(val, (list, tuple)):
-        return {str(s) for s in val}
-    return set()
+        raw = [s for s in val.split() if s]
+    elif isinstance(val, (list, tuple)):
+        raw = [str(s) for s in val if s]
+    else:
+        return set()
+    # Cognito emits resource-server scopes fully qualified ("<resource-id>/control:read");
+    # normalize to the bare scope so they match TOOL_SCOPES. Bare scopes (openid,
+    # aws.cognito.signin.user.admin) have no "/" and pass through unchanged.
+    return {s.rsplit("/", 1)[-1] for s in raw}
 
 
 def authorize(principal: Principal, required_scope: str) -> None:
@@ -291,6 +371,6 @@ __all__ = [
     "AuthError", "Principal", "OAuthResourceConfig", "TokenValidator",
     "make_jwks_key_resolver", "authorize", "authorize_tool", "principal_from_claims",
     "SCOPE_READ", "SCOPE_REGISTER", "SCOPE_DISPATCH", "SCOPE_ADJUDICATE",
-    "ALL_SCOPES", "TOOL_SCOPES",
-    "ROLE_ALLOWLIST", "ROLE_OPERATOR", "ROLE_READONLY",
+    "ALL_SCOPES", "TOOL_SCOPES", "DEFAULT_GROUP_ROLE_MAP",
+    "ROLE_ALLOWLIST", "ROLE_OPERATOR", "ROLE_PROPOSER", "ROLE_READONLY",
 ]

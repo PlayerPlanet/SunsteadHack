@@ -17,7 +17,8 @@ from cleanroom.control.server.auth import (
     authorize,
     authorize_tool,
 )
-from cleanroom.control.server.roles import ROLE_OPERATOR, ROLE_READONLY
+from cleanroom.control.server.auth import principal_from_claims
+from cleanroom.control.server.roles import ROLE_OPERATOR, ROLE_PROPOSER, ROLE_READONLY
 
 ISSUER = "https://idp.example.com/"
 AUDIENCE = "https://control.sunstead.example/mcp"
@@ -174,6 +175,78 @@ def test_challenge_header_points_at_metadata():
     assert "resource_metadata=" in ch
     assert ".well-known/oauth-protected-resource" in ch
     assert 'error="invalid_token"' in ch
+
+
+# ---- group-driven role + role-implied scopes (dashboard registration path) -----
+# These exercise principal_from_claims directly the way the AgentCore runtime middleware
+# does (decoded claims, strict_role=False), since that is where dashboard tokens land.
+
+def test_cognito_group_maps_to_operator_role_and_scopes():
+    # A user registered on the dashboard and put in the operators group. Their access
+    # token carries only openid/email + cognito:groups — no control:* scopes.
+    p = principal_from_claims(
+        {"sub": "u", "scope": "openid email", "cognito:groups": ["sunstead-operators"]},
+        strict_role=False,
+    )
+    assert p.db_role == ROLE_OPERATOR
+    # role implies the operator scope surface, so group membership alone authorizes.
+    assert {"control:read", "control:dispatch", "control:adjudicate"} <= p.scopes
+
+
+def test_no_group_defaults_to_readonly_with_read_scope():
+    p = principal_from_claims(
+        {"sub": "u", "scope": "openid email"}, strict_role=False
+    )
+    assert p.db_role == ROLE_READONLY
+    assert p.scopes == frozenset({"control:read"})  # can read, cannot mutate
+    authorize_tool(p, "read_boundary")
+    with pytest.raises(AuthError):
+        authorize_tool(p, "dispatch_run")
+
+
+def test_multiple_groups_take_highest_privilege():
+    p = principal_from_claims(
+        {"sub": "u", "cognito:groups": ["sunstead-viewers", "sunstead-operators"]},
+        strict_role=False,
+    )
+    assert p.db_role == ROLE_OPERATOR
+
+
+def test_proposer_group_maps_to_proposer_role():
+    p = principal_from_claims(
+        {"sub": "u", "cognito:groups": ["sunstead-proposers"]}, strict_role=False
+    )
+    assert p.db_role == ROLE_PROPOSER
+    assert p.scopes == frozenset({"control:read", "control:register"})
+
+
+def test_explicit_db_role_claim_beats_group():
+    # A pre-token Lambda (or machine caller) naming db_role wins over group inference.
+    p = principal_from_claims(
+        {"sub": "u", "db_role": ROLE_READONLY, "cognito:groups": ["sunstead-operators"]},
+        strict_role=False,
+    )
+    assert p.db_role == ROLE_READONLY
+
+
+def test_machine_precise_control_scopes_are_preserved():
+    # A client_credentials caller presenting exact control:* scopes keeps only those,
+    # even though its role would imply more — least privilege for automation.
+    p = principal_from_claims(
+        {"sub": "svc", "scope": "control:read", "cognito:groups": ["sunstead-operators"]},
+        strict_role=False,
+    )
+    assert p.db_role == ROLE_OPERATOR
+    assert p.scopes == frozenset({"control:read"})  # NOT widened to the operator set
+
+
+def test_resource_server_scope_prefix_is_normalized():
+    # Cognito qualifies resource-server scopes: "<resource-id>/control:dispatch".
+    p = principal_from_claims(
+        {"sub": "svc", "scope": "sunstead-control/control:read sunstead-control/control:dispatch"},
+        strict_role=False,
+    )
+    assert {"control:read", "control:dispatch"} == p.scopes
 
 
 def test_from_env_requires_core_settings():

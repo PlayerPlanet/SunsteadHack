@@ -59,6 +59,17 @@ GRANT sunstead_readonly TO sunstead_proposer;
 GRANT INSERT ON experiment, crossing TO sunstead_proposer;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sunstead_proposer;
 
+-- ---- survive schema rebuilds ------------------------------------------------
+-- Recreating a table/schema DROPs its grants, which silently breaks the brokered
+-- roles (the server SET ROLEs per request, so it then fails reads with `relation
+-- does not exist`). Default privileges re-grant automatically for objects the owner
+-- creates later. (For an existing-but-rebuilt schema, re-apply the explicit grants
+-- above — see sql/grant_control_roles.sql, an idempotent re-grant that needs no password.)
+ALTER DEFAULT PRIVILEGES FOR ROLE avnadmin IN SCHEMA public
+  GRANT SELECT ON TABLES TO sunstead_readonly;
+ALTER DEFAULT PRIVILEGES FOR ROLE avnadmin IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO sunstead_operator, sunstead_proposer;
+
 -- ---- truth boundary (effective once held-out tables exist) ------------------
 -- When the bio/quant benchmarks add held-out label tables (e.g. held_out_labels),
 -- they must be created here and walled off from the proposer. Template:
