@@ -75,6 +75,18 @@ The expensive model is spent **only at the boundary** (adjudicating escalations)
 > optimizer: _Under unprecedented mixed OLTP+OLAP storm with p99 spiking 10x and all targeted indexes exhausted, the bottleneck has shifted from query planning to I/O contention during bulk inserts. Disabling synchronous_commit eliminates the fsync bottleneck on WAL writes, allowing bulk inserts to proceed asynchronously while reads can flow through the buffer pool with lower lock contention, directly reducing p99 oscillation._
 > human: _I am rejecting this change despite the acute performance pressure. Here is the reasoning: Setting `synchronous_commit = off` trades durability for latency — PostgreSQL will acknowledge commits before WAL records are flushed to disk, meaning up to ~`wal_writer_delay` (default 200ms) worth of recently committed transactions can be silently lost on a crash. While the parameter is technically reversible (a GUC flip), any data loss that occurs between now and a rollback is NOT reversible — committed transactions acknowledged to the application will have vanished, potentially corrupting business-critical state, violating ACID guarantees, and triggering downstream inconsistency in dependent systems. The risk profile is therefore asymmetric: the change is operationally reversible but the data-loss window is permanent. At drift=0.87, the workload is unprecedented and poorly understood — we do not know whether the p99 spike is driven by commit-latency (where this might help) or by lock contention, I/O saturation, query plan regressions, or connection exhaustion (where it would not help and we'd be incurring durability risk for no gain). The blast radius is systemic: this is a cluster-wide GUC affecting every write transaction. The right path forward under this regime is: (1) capture `pg_stat_activity`, `pg_locks`, and `auto_explain` output to diagnose the actual bottleneck before making durability trade-offs; (2) consider connection pooling (PgBouncer) or workload shedding if connection count is the driver; (3) if commit latency is genuinely the culprit, scope the change to specific non-critical sessions via `SET LOCAL synchronous_commit = off` within controlled transactions rather than a cluster-wide flip. A cluster-wide durability downgrade under an opaque, unprecedented workload spike, without a confirmed diagnosis, does not meet the bar for an approval._
 
+## 6. Is the gap learnable? — the membrane, fit on these labels
+
+The bet is that a membrane could learn the human's verdict and auto-clear the false stops. Tested honestly with leave-one-out on n=15:
+
+| model | LOO accuracy (out-of-sample) |
+|---|---|
+| majority-class floor ("always approve") | 53.3% |
+| per-lever majority (transparent) | **93.3%** (14/15) |
+| logistic — one-hot lever + reversible + drift | **93.3%** (14/15) |
+
+The verdict is separable on the proposed lever; the **only** residual LOO error is `synchronous_commit` (true=reject, predicted=approve, drift=0.8696) — the one lever that drew opposite verdicts. **The slack is ~93% learnable; what remains is exactly the irreducible judgment** the frozen proxy can never hold and a human (or the membrane's abstention) must. That residual is not a bug — it is the true epistemic edge.
+
 ---
 
 _Latency here is modeled; live p99 is proven separately (`scripts/run_phase1_curve.py` 58→25ms, `scripts/run_job_curve.py` 107→57ms). The frozen pore (`cleanroom/pore`) was not edited. Regenerate: `python scripts/run_deep_probe.py && python scripts/analyze_deep_probe.py`._

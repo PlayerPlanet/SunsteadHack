@@ -248,6 +248,48 @@ def test_backoff_retries_transient_then_succeeds():
     assert calls["n"] == 3
 
 
+# --- the membrane-fit capstone (learnability of the calibration gap) ---------
+
+def _esc_row(lever, decision, drift=0.9, reversible=True):
+    return {"escalated": True, "human_decision": decision, "drift": drift,
+            "candidate": {"type": "guc", "params": {"name": lever}, "reversible": reversible}}
+
+
+def test_featurize_one_hot_and_target():
+    from scripts.fit_membrane import featurize
+    esc = [_esc_row("fsync", "reject"), _esc_row("shared_buffers", "approve")]
+    X, y, levers = featurize(esc)
+    assert levers == ["fsync", "shared_buffers"]
+    assert X.shape == (2, 4)  # 2 one-hot + reversible + drift
+    assert list(y) == [0, 1]  # reject=0, approve=1
+
+
+def test_loo_majority_recovers_separable_structure():
+    from scripts.fit_membrane import loo_majority
+    esc = ([_esc_row("fsync", "reject")] * 3 + [_esc_row("shared_buffers", "approve")] * 3)
+    res = loo_majority(esc)
+    assert res["accuracy"] == 1.0  # cleanly separable by lever
+    assert res["errors"] == []
+
+
+def test_loo_majority_residual_on_ambiguous_lever():
+    from scripts.fit_membrane import loo_majority
+    # 4 approve / 1 reject on the same lever -> LOO mispredicts only the minority reject
+    esc = [_esc_row("synchronous_commit", "approve")] * 4 + [_esc_row("synchronous_commit", "reject")]
+    res = loo_majority(esc)
+    assert res["correct"] == 4 and res["n"] == 5
+    assert res["errors"][0]["lever"] == "synchronous_commit"
+    assert res["errors"][0]["true"] == "reject"
+
+
+def test_lever_separability_counts():
+    from scripts.fit_membrane import lever_separability
+    sep = lever_separability([_esc_row("fsync", "reject"), _esc_row("fsync", "reject"),
+                              _esc_row("shared_buffers", "approve")])
+    assert sep["fsync"] == {"approve": 0, "reject": 2}
+    assert sep["shared_buffers"] == {"approve": 1, "reject": 0}
+
+
 def test_backoff_reraises_non_transient_immediately():
     calls = {"n": 0}
 

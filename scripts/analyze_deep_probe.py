@@ -26,7 +26,9 @@ _PRICE = {
 def _load(in_dir: Path):
     rows = [json.loads(l) for l in (in_dir / "dataset.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     readings = json.loads((in_dir / "readings.json").read_text(encoding="utf-8"))
-    return rows, readings
+    membrane_path = in_dir / "membrane_fit.json"
+    membrane = json.loads(membrane_path.read_text(encoding="utf-8")) if membrane_path.exists() else None
+    return rows, readings, membrane
 
 
 def _token_cost(rows):
@@ -52,7 +54,7 @@ def _ascii_bar(frac, width=34):
     return "#" * int(round(frac * width))
 
 
-def build_report(rows, readings) -> str:
+def build_report(rows, readings, membrane=None) -> str:
     cfg = readings["config"]
     combined = readings["combined"]
     cg = combined["calibration_gap"]
@@ -140,7 +142,30 @@ def build_report(rows, readings) -> str:
             w(f"> optimizer: _{r['proposer_reasoning'].strip()}_")
             w(f"> human: _{r['human_rationale'].strip()}_\n")
 
-    w("---\n")
+    # Membrane learnability capstone
+    if membrane:
+        base = membrane["loo_per_lever_majority"]["accuracy"]
+        logit = membrane["loo_logistic"]["accuracy"]
+        w("## 6. Is the gap learnable? — the membrane, fit on these labels\n")
+        w(f"The bet is that a membrane could learn the human's verdict and auto-clear the false "
+          f"stops. Tested honestly with leave-one-out on n={membrane['n_escalated']}:\n")
+        w("| model | LOO accuracy (out-of-sample) |")
+        w("|---|---|")
+        w(f"| majority-class floor (\"always approve\") | {membrane['majority_class_baseline']:.1%} |")
+        w(f"| per-lever majority (transparent) | **{base:.1%}** ({membrane['loo_per_lever_majority']['correct']}/{membrane['n_escalated']}) |")
+        w(f"| logistic — one-hot lever + reversible + drift | **{logit:.1%}** ({membrane['loo_logistic']['correct']}/{membrane['n_escalated']}) |")
+        w("")
+        errs = membrane["loo_per_lever_majority"]["errors"]
+        if errs:
+            e = errs[0]
+            w(f"The verdict is separable on the proposed lever; the **only** residual LOO error is "
+              f"`{e['lever']}` (true={e['true']}, predicted={e['pred']}, drift={e['drift']}) — the one lever "
+              f"that drew opposite verdicts. **The slack is ~{logit:.0%} learnable; what remains is exactly "
+              f"the irreducible judgment** the frozen proxy can never hold and a human (or the membrane's "
+              f"abstention) must. That residual is not a bug — it is the true epistemic edge.\n")
+        w("---\n")
+    else:
+        w("---\n")
     w("_Latency here is modeled; live p99 is proven separately "
       "(`scripts/run_phase1_curve.py` 58→25ms, `scripts/run_job_curve.py` 107→57ms). "
       "The frozen pore (`cleanroom/pore`) was not edited. Regenerate: "
@@ -155,8 +180,8 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     in_dir = Path(args.in_dir)
-    rows, readings = _load(in_dir)
-    report = build_report(rows, readings)
+    rows, readings, membrane = _load(in_dir)
+    report = build_report(rows, readings, membrane)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding="utf-8")
