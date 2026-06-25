@@ -147,9 +147,12 @@ class Operator:
             # Hold as pending_judgment
             self.registry.save(spec, state="pending_judgment")
 
-            # Write crossing for human review
+            # Write crossing for human review. A governance crossing has NO
+            # associated experiment, so experiment_id is NULL — not 0, which would
+            # violate the real crossing.experiment_id -> experiment(id) FK (the
+            # in-memory fixture doesn't enforce it; real Postgres does).
             logclient.write_crossing(
-                experiment_id=0,  # No experiment yet
+                experiment_id=None,
                 pore=pore_result.pore,
                 risk_level=pore_result.risk_level,
                 requires_human_judgment=True,

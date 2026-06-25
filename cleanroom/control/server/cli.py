@@ -123,13 +123,13 @@ def main(argv=None):
     elif args.command == "get-run":
         status = operator.get_run(args.run_id)
         if status:
-            print(json.dumps(dataclasses.asdict(status), indent=2))
+            print(json.dumps(dataclasses.asdict(status), indent=2, default=str))
         else:
             print(f"Run {args.run_id} not found")
 
     elif args.command == "list-runs":
         runs = operator.list_runs()
-        print(json.dumps([dataclasses.asdict(r) for r in runs], indent=2))
+        print(json.dumps([dataclasses.asdict(r) for r in runs], indent=2, default=str))
 
     elif args.command == "cancel-run":
         operator.cancel_run(args.run_id)
@@ -138,7 +138,7 @@ def main(argv=None):
     elif args.command == "pending-escalations":
         logclient = make_logclient()
         escalations = operator.pending_escalations(logclient)
-        print(json.dumps(escalations, indent=2))
+        print(json.dumps(escalations, indent=2, default=str))
 
     elif args.command == "adjudicate":
         logclient = make_logclient()
@@ -163,7 +163,7 @@ def main(argv=None):
     elif args.command == "read-curve":
         logclient = make_logclient()
         experiments = operator.read_curve(args.task_id, logclient=logclient)
-        print(json.dumps(experiments, indent=2))
+        print(json.dumps(experiments, indent=2, default=str))
 
     else:
         parser.print_help()

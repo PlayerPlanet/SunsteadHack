@@ -11,6 +11,7 @@ independently of the mcp runtime. The `build_server()` function wires them to Fa
 """
 
 import dataclasses
+import datetime
 import json
 from typing import Any
 
@@ -21,6 +22,22 @@ from cleanroom.control.server.wiring import (
     make_dispatch_ctx,
     governance_pore,
 )
+
+
+def _json_safe(obj):
+    """Recursively coerce datetimes to ISO strings so tool results are plain JSON.
+
+    The real Postgres backend returns timestamptz columns (e.g. crossing.created_at,
+    run.started_at) as datetime objects; the in-memory fixture does not. Coerce here
+    so the MCP tool surface is backend-agnostic.
+    """
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    return obj
 
 
 # ==================== Tool Logic Functions (Unit-Testable) ====================
@@ -106,7 +123,7 @@ def tool_get_run(run_id: str) -> dict | None:
     """
     operator = make_operator()
     status = operator.get_run(run_id)
-    return dataclasses.asdict(status) if status else None
+    return _json_safe(dataclasses.asdict(status)) if status else None
 
 
 def tool_list_runs(filter_json: str | None = None) -> list[dict]:
@@ -129,7 +146,7 @@ def tool_list_runs(filter_json: str | None = None) -> list[dict]:
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid filter JSON: {e}")
     runs = operator.list_runs(filter=filter_dict)
-    return [dataclasses.asdict(r) for r in runs]
+    return [_json_safe(dataclasses.asdict(r)) for r in runs]
 
 
 def tool_cancel_run(run_id: str) -> None:
@@ -150,7 +167,7 @@ def tool_pending_escalations() -> list[dict]:
     """
     operator = make_operator()
     logclient = make_logclient()
-    return operator.pending_escalations(logclient)
+    return _json_safe(operator.pending_escalations(logclient))
 
 
 def tool_adjudicate(
@@ -189,7 +206,7 @@ def tool_read_curve(task_id: str) -> list[dict]:
     """
     operator = make_operator()
     logclient = make_logclient()
-    return operator.read_curve(task_id, logclient=logclient)
+    return _json_safe(operator.read_curve(task_id, logclient=logclient))
 
 
 # ==================== MCP Server Setup ====================
