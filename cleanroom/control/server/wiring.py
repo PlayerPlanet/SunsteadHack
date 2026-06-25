@@ -153,18 +153,96 @@ def make_operator() -> Operator:
     return _operator
 
 
+class RealBenchmark:
+    """Wrapper around the real benchmark module for use in dispatch_run.
+
+    Adapts the real benchmark functions (run_benchmark, check_correctness,
+    is_within_noise) from cleanroom.benchmark to match the CannedBenchmark
+    interface so the loop can use either fixture or real benchmarks transparently.
+
+    Used only when a real Postgres backend is configured (data_dsn() set).
+    """
+
+    def run_benchmark(
+        self, conn, workload_id: str, *, warmup: int = 5, trials: int = 10
+    ):
+        """Execute the real frozen workload on a live Postgres connection.
+
+        Delegates directly to cleanroom.benchmark.run_benchmark, which requires
+        a real psycopg3 connection and measures actual database performance.
+
+        Args:
+            conn: An open psycopg3 connection (required; raises if None).
+            workload_id: Key into the frozen workload registry.
+            warmup: Untimed warmup iterations (default 5).
+            trials: Sequentially-timed measurement iterations (default 10).
+
+        Returns:
+            Result(p99_ms, throughput, cost_estimate, samples).
+        """
+        from cleanroom.benchmark import run_benchmark as real_run_benchmark
+
+        return real_run_benchmark(conn, workload_id, warmup=warmup, trials=trials)
+
+    def check_correctness(self, conn, candidate):
+        """Verify a candidate does not change query results (real gate).
+
+        Delegates to cleanroom.benchmark.check_correctness, which handles
+        query rewrites and verifies semantic equivalence.
+
+        Args:
+            conn: An open psycopg3 connection (or None in fixture mode).
+            candidate: The candidate to validate.
+
+        Returns:
+            True if results are unchanged, False if a rewrite changed results.
+        """
+        from cleanroom.benchmark import check_correctness as real_check_correctness
+
+        return real_check_correctness(conn, candidate)
+
+    def is_within_noise(self, baseline_samples, candidate_samples):
+        """Return True if the candidate is statistically indistinguishable from baseline.
+
+        Delegates to cleanroom.benchmark.is_within_noise, which uses a Welch's t-test
+        and minimum-effect-size floor to guard against noise.
+
+        Args:
+            baseline_samples: Baseline latency samples.
+            candidate_samples: Candidate latency samples.
+
+        Returns:
+            True if within noise, False if the improvement is signal.
+        """
+        from cleanroom.benchmark import is_within_noise as real_is_within_noise
+
+        return real_is_within_noise(baseline_samples, candidate_samples)
+
+
 def make_dispatch_ctx(logclient) -> OperatorContext:
     """OperatorContext for dispatch_run.
 
     Phase 1 uses the FIXTURE proposer + benchmark (no live workload DB needed) but
     the REAL frozen pore and the given (persistent or in-memory) logclient. Phase 2
-    swaps in A's ClaudeCodeProposer + B's real benchmark behind this same seam.
+    swaps in A's ClaudeCodeProposer + B's real benchmark behind this same seam when a
+    real Postgres backend is configured (data_dsn() set).
     """
     import cleanroom.pore
 
+    if data_dsn():
+        # Phase-2: real proposer + benchmark (require a live Postgres workload DB).
+        from cleanroom.loop.proposers import ClaudeCodeProposer
+
+        proposer = ClaudeCodeProposer()
+        benchmark = RealBenchmark()
+    else:
+        # Phase-1: FIXTURE path (all existing tests use this).
+        proposer = DummyProposer()
+        benchmark = CannedBenchmark()
+
     return OperatorContext(
-        proposer=DummyProposer(),
-        benchmark=CannedBenchmark(),
+        proposer=proposer,
+        benchmark=benchmark,
         pore=cleanroom.pore,
         logclient=logclient,
     )

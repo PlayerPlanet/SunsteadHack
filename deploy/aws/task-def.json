@@ -1,0 +1,44 @@
+{
+  "family": "${TASK_FAMILY_NAME}",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "${TASK_CPU}",
+  "memory": "${TASK_MEMORY}",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${TASK_EXECUTION_ROLE_NAME}",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${TASK_ROLE_NAME}",
+  "containerDefinitions": [
+    {
+      "name": "proposer",
+      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${ECR_IMAGE_TAG}",
+      "essential": true,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/${TASK_FAMILY_NAME}",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "proposer"
+        }
+      },
+      "secrets": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${SECRET_ANTHROPIC_API_KEY_NAME}-*"
+        },
+        {
+          "name": "DB_DSN",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:${SECRET_DB_DSN_NAME}-*"
+        }
+      ],
+      "environment": [
+        {
+          "name": "TASK",
+          "value": "Optimize Postgres for the IMDB workload: find the single most impactful index to add given the schema and pg_stat_statements."
+        },
+        {
+          "name": "MODEL",
+          "value": "claude-haiku-4-5-20251001"
+        }
+      ]
+    }
+  ]
+}

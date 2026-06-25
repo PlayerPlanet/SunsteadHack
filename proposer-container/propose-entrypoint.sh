@@ -23,6 +23,35 @@ if [ -z "$TASK" ]; then
     exit 1
 fi
 
+# ---- MCP Config Regeneration (Cloud Support) --------
+# If DB_DSN is set (from AWS Secrets Manager / cloud deployment), regenerate the MCP config
+# to point to the real database instead of host.docker.internal (which doesn't exist on Fargate).
+# Otherwise, fall back to the bundled config for local docker run.
+
+MCP_CONFIG_PATH="/etc/readonly-pg.mcp.json"
+
+if [ -n "${DB_DSN:-}" ]; then
+    # Cloud deployment: regenerate MCP config from DB_DSN
+    cat > "$MCP_CONFIG_PATH" <<EOF
+{
+  "mcpServers": {
+    "pg": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "$DB_DSN"
+      ]
+    }
+  }
+}
+EOF
+    echo "[proposer] Using cloud DB_DSN for MCP config" >&2
+else
+    # Local deployment: use bundled config (host.docker.internal:55432)
+    echo "[proposer] Using local host.docker.internal for MCP config" >&2
+fi
+
 # System prompt instructs the model to propose exactly ONE index and return raw JSON.
 SYSTEM_PROMPT="You are a Postgres performance researcher. Use ONLY the pg query tool (read-only) to inspect the schema, table sizes, and pg_stat_statements. Propose exactly ONE index to speed up the stated workload. Your FINAL message must be ONLY a raw JSON object and nothing else: {\"type\":\"index\",\"params\":{\"table\":\"<table>\",\"columns\":[\"<col>\",...]},\"reversible\":true}. Do not apply or benchmark anything; you cannot — you only propose."
 
@@ -38,7 +67,7 @@ claude \
   -p "$TASK" \
   --output-format json \
   --model "$MODEL" \
-  --mcp-config /etc/readonly-pg.mcp.json \
+  --mcp-config "$MCP_CONFIG_PATH" \
   --allowedTools "mcp__pg__query" \
   --disallowedTools "Bash" "Write" "Edit" "WebFetch" \
   --append-system-prompt "$SYSTEM_PROMPT"
