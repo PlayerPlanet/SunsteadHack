@@ -327,6 +327,8 @@ class ClaudeCodeProposer:
                 capture_output=True,
                 timeout=5,
                 check=True,
+                encoding="utf-8",
+                errors="replace",
             )
         except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             raise ValueError(
@@ -342,6 +344,8 @@ class ClaudeCodeProposer:
                 text=True,
                 timeout=5,
                 check=True,
+                encoding="utf-8",
+                errors="replace",
             )
             if not result.stdout.strip():
                 raise ValueError(
@@ -387,23 +391,35 @@ Your FINAL response must be ONLY a raw JSON object (no markdown, no explanation)
 
         # Run the container
         try:
+            # Build docker run args, optionally including DB_DSN passthrough
+            docker_args = [
+                "docker",
+                "run",
+                "--rm",
+                "-e",
+                f"ANTHROPIC_API_KEY={api_key}",
+                "-e",
+                f"TASK={task_prompt}",
+                "-e",
+                f"MODEL={self.model}",
+            ]
+
+            # Optionally pass DB_DSN to the proposer container
+            # (so it can inspect the same DB the benchmark measures)
+            db_dsn = os.environ.get("PROPOSER_DB_DSN") or os.environ.get("CLEANROOM_PG_DSN")
+            if db_dsn:
+                docker_args.extend(["-e", f"DB_DSN={db_dsn}"])
+
+            docker_args.append(self.image)
+
             result = subprocess.run(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "-e",
-                    f"ANTHROPIC_API_KEY={api_key}",
-                    "-e",
-                    f"TASK={task_prompt}",
-                    "-e",
-                    f"MODEL={self.model}",
-                    self.image,
-                ],
+                docker_args,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
                 check=False,  # Don't raise on non-zero exit; we'll parse stderr/stdout
+                encoding="utf-8",
+                errors="replace",
             )
         except subprocess.TimeoutExpired as e:
             raise ValueError(

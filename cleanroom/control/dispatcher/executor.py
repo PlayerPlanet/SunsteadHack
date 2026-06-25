@@ -1,12 +1,17 @@
 """Background executor and progress tap for run_loop invocations."""
 
 import datetime
+import logging
 import threading
 from typing import Callable
 
 from cleanroom import loop
+from cleanroom.benchmark import register_workload
+from cleanroom.benchmark.workloads import WORKLOAD_CATALOG
 from cleanroom.control.dispatcher.state import RunStatus
 from cleanroom.control.dispatcher.store_interface import SwappableRunStore
+
+logger = logging.getLogger(__name__)
 
 
 class CancelledRun(Exception):
@@ -195,6 +200,19 @@ def _run_loop_worker(
         task_spec_copy = dict(task_spec)
         task_spec_copy["model"] = model
         task_spec_copy["task_id"] = task_spec_copy.get("task_id", "unknown")
+
+        # Register workload from catalog if task specifies a workload_id
+        workload_id = task_spec_copy.get("workload_id")
+        if workload_id and workload_id != "__default__":
+            if workload_id in WORKLOAD_CATALOG:
+                register_workload(workload_id, WORKLOAD_CATALOG[workload_id])
+            else:
+                # Log a warning but don't crash; the benchmark will fall back to __default__
+                # (unless the workload is already registered in the same process)
+                logger.warning(
+                    f"workload_id {workload_id!r} not in catalog and not pre-registered; "
+                    f"falling back to '__default__'. Known workloads: {sorted(WORKLOAD_CATALOG)}"
+                )
 
         # Run the loop
         loop.run_loop(
