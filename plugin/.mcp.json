@@ -8,7 +8,8 @@
       "url": "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT",
       "oauth": {
         "clientId": "1phgpdfcrftedtj69hhni18bue",
-        "callbackPort": 8080
+        "callbackPort": 8080,
+        "scopes": "openid email profile"
       }
     }
   }
