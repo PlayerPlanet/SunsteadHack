@@ -1,7 +1,7 @@
 """Per-request context shared between the HTTP transport and the MCP tools.
 
-Kept in its own tiny module so both `mcp` (tools) and `http_app` (middleware that
-sets the principal) can import it without an import cycle.
+Kept in its own tiny module so both `mcp` (tools) and `runtime_app` (the AgentCore
+identity middleware that sets the principal) can import it without an import cycle.
 
 When `current_principal` is None — the local stdio mode, where a single trusted
 operator runs the server as their own subprocess — tools skip scope enforcement.

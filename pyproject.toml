@@ -25,8 +25,9 @@ control = [
     "mcp>=1.0",
 ]
 server = [
-    # Deployment-grade remote serving (Story G): streamable-HTTP transport + OAuth 2.1
-    # resource server. All imported lazily by cleanroom/control/server/http_app.py.
+    # Remote serving: streamable-HTTP MCP for AgentCore Runtime (runtime_app/runtime_mcp).
+    # OAuth validation deps (pyjwt) are still used by auth.py for local self-hosting and
+    # the claims decode in the AgentCore identity middleware.
     "mcp>=1.0",
     "uvicorn>=0.30",
     "starlette>=0.40",

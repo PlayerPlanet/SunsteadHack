@@ -26,27 +26,3 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: python -m pytest -q
-
-  terraform-validate:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra/terraform
-    steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - name: Format check (advisory)
-        continue-on-error: true
-        run: terraform fmt -check -recursive
-      - name: Validate (no backend/credentials needed)
-        run: |
-          terraform init -backend=false
-          terraform validate
-
-  docker-build:
-    # Proves the image builds; does not push (push happens in deploy.yml on main).
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: docker build -t sunstead-control:ci .

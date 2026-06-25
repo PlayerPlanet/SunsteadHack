@@ -47,10 +47,10 @@ def _json_safe(obj):
 def _enforce(tool_name: str) -> None:
     """Enforce per-tool OAuth scope when an authenticated principal is in context.
 
-    The HTTP transport (cleanroom.control.server.http_app) sets current_principal
-    after validating the bearer token; here we check that principal holds the scope
-    this tool requires. In stdio/local mode no principal is set, so this is a no-op —
-    which keeps the local plugin subprocess and the direct unit tests unchanged.
+    The AgentCore runtime app (cleanroom.control.server.runtime_app) sets
+    current_principal from the platform-validated token; here we check that principal
+    holds the scope this tool requires. In stdio/local mode no principal is set, so
+    this is a no-op — which keeps the local plugin subprocess and unit tests unchanged.
     """
     from cleanroom.control.server.auth import authorize_tool
     from cleanroom.control.server.context import current_principal

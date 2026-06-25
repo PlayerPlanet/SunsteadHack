@@ -1,17 +1,18 @@
 name: deploy
 
-# App rollout (NOT infra): build the image, push to ECR, and force a new ECS
-# deployment of the web + worker services so they pull the new image. Infra changes
-# (VPC/ALB/Cognito/task defs) go through infra.yml (manual terraform), keeping this
-# path fast and low-blast-radius. Auth to AWS is via GitHub OIDC — no static keys.
+# Deploy the control-plane MCP server to Amazon Bedrock AgentCore Runtime via the
+# AgentCore CLI. AgentCore handles the HTTPS endpoint, inbound OAuth, scaling and
+# session isolation — so there is no ALB/ECS/image-rollout here, just `agentcore deploy`.
+# Auth to AWS is via GitHub OIDC (no static keys). Gated behind DEPLOY_ENABLED so it
+# stays skipped until AWS + the committed agentcore/ config exist.
 
 on:
   push:
     branches: [main]
     paths:
       - "cleanroom/**"
-      - "Dockerfile"
-      - "pyproject.toml"
+      - "agentcore/**"
+      - "requirements-runtime.txt"
       - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
@@ -24,21 +25,22 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'sunstead-control' }}
-  ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'sunstead-control' }}
-  WEB_SERVICE: ${{ vars.WEB_SERVICE || 'sunstead-control-web' }}
-  WORKER_SERVICE: ${{ vars.WORKER_SERVICE || 'sunstead-control-worker' }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
 
 jobs:
   deploy:
-    # Opt-in: stays skipped (green) until AWS is provisioned and you set the repo
-    # variable DEPLOY_ENABLED=true. Avoids a red ✗ on every main merge before then.
+    # Opt-in: skipped (green) until AWS is provisioned, the agentcore/ project is
+    # committed (via a one-time `agentcore create --protocol MCP`), and you set
+    # DEPLOY_ENABLED=true. See docs/deploy-agentcore.md.
     if: ${{ vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    environment: production   # gate with required reviewers in repo settings if desired
+    environment: production   # add required reviewers in repo settings to gate deploys
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -46,24 +48,13 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Install AgentCore CLI
+        run: npm install -g @aws/agentcore
 
-      - name: Build, tag, and push image
-        env:
-          REGISTRY: ${{ steps.ecr.outputs.registry }}
-        run: |
-          IMAGE="$REGISTRY/$ECR_REPOSITORY"
-          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
-          docker push "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
+      - name: Deploy to AgentCore Runtime
+        # Non-interactive: relies on the committed agentcore/agentcore.json +
+        # agentcore/aws-targets.json (generated once by `agentcore create`).
+        run: agentcore deploy
 
-      - name: Force new deployment (web + worker pull :latest)
-        run: |
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$WEB_SERVICE" --force-new-deployment >/dev/null
-          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$WORKER_SERVICE" --force-new-deployment >/dev/null
-
-      - name: Wait for services to stabilize
-        run: |
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$WEB_SERVICE" "$WORKER_SERVICE"
+      - name: Show status
+        run: agentcore status

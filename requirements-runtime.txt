@@ -1,0 +1,11 @@
+# Runtime dependencies for the AgentCore-hosted MCP server (entrypoint:
+# cleanroom.control.server.runtime_mcp). AgentCore packages these with the app code.
+#
+# The `cleanroom` package itself must also be importable in the AgentCore build — see
+# agentcore/README.md (the `agentcore create` bootstrap copies/installs it).
+mcp>=1.0
+starlette>=0.40
+uvicorn>=0.30
+pyjwt[crypto]>=2.8       # decode the AgentCore-forwarded token for per-tool scope
+psycopg[binary]>=3.1.0   # Aiven Postgres (the governance log / KB), as sunstead_app
+numpy>=1.24.0
