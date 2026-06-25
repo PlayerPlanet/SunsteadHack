@@ -32,6 +32,9 @@ env:
 
 jobs:
   deploy:
+    # Opt-in: stays skipped (green) until AWS is provisioned and you set the repo
+    # variable DEPLOY_ENABLED=true. Avoids a red ✗ on every main merge before then.
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment: production   # gate with required reviewers in repo settings if desired
     steps:

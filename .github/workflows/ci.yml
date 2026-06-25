@@ -18,8 +18,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install package + server/dev extras
-        run: pip install ".[server,dev]"
+      - name: Install package + extras (server, dev, proposer)
+        # proposer brings `anthropic`, which the offline proposer tests import; without
+        # it they ModuleNotFoundError instead of asserting the expected ValueError.
+        run: pip install ".[server,dev,proposer]"
       - name: Run tests
         env:
           PYTHONIOENCODING: utf-8
