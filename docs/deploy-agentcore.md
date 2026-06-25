@@ -32,16 +32,28 @@ re-validate — AgentCore did). That's safe *only* behind AgentCore; the non-sup
 - The Aiven `sunstead_app` DSN (ends `/sunstead_control`).
 
 ## Step A — Aiven non-superuser roles  ✅ done
-Provisioned via `scripts`/`sql/roles.sql` into a dedicated `sunstead_control` DB
-(brokered `sunstead_readonly`/`operator`/`proposer`; serving login is non-superuser).
-The app DSN is `postgresql://sunstead_app:…@…:11244/sunstead_control?sslmode=require`.
+Provisioned into a dedicated `sunstead_control` DB (brokered
+`sunstead_readonly`/`operator`/`proposer`; serving login is non-superuser):
+```bash
+ADMIN_DSN='postgresql://avnadmin:…@…:11244/defaultdb?sslmode=require' \
+    python scripts/provision_control_roles.py
+```
+It verifies the boundary (`rolsuper=False`, proposer denied `judgment` INSERT) and
+writes the app DSN to a **gitignored** `app_dsn.secret` (masked in stdout). The app DSN
+is `postgresql://sunstead_app:…@…:11244/sunstead_control?sslmode=require`.
+
+**Rotate credentials** (do before going internet-facing, or if a DSN leaks): re-run the
+command above — it ALTERs `sunstead_app`'s password to a fresh value without echoing it
+(new DSN lands in `app_dsn.secret`). Rotate `avnadmin` separately in the Aiven console /
+`avn service user-password-reset`.
 
 ## Step B — Inbound IdP (Cognito example)
 AgentCore needs an OIDC **Discovery URL** + **Client ID** to validate inbound tokens:
 ```bash
 export REGION=us-west-2 USERNAME=ops PASSWORD='<strong>'
-# create user pool + app client + a test user; prints Discovery URL, Client ID, Bearer
-source ./setup_cognito.sh   # the snippet from the AgentCore MCP docs (Appendix A)
+# pool + resource server (control:* scopes) + machine & test clients + test user;
+# prints Discovery URL, Client IDs, and a test Bearer token
+source scripts/setup_cognito.sh
 ```
 (Any OIDC IdP works — Auth0 with Dynamic Client Registration is convenient for the
 Claude connector's auth-code flow; Cognito for machine/client-credentials callers.)
