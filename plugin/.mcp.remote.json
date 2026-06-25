@@ -1,9 +1,12 @@
 {
-  "//": "Remote plugin config for the AgentCore-hosted control plane. Point `url` at your AgentCore Runtime invocation endpoint (URL-encode the runtime ARN). Claude's connector performs the OAuth handshake using the RFC 9728 protected-resource metadata that AgentCore serves at the /.well-known/oauth-protected-resource path of this endpoint. Replace REGION and the encoded ARN with the values from `agentcore status`.",
+  "//": "Remote plugin config for the AgentCore-hosted control plane. The runtime uses CUSTOM_JWT (Cognito) inbound auth, so a Bearer access token is required. Set SUNSTEAD_TOKEN in your environment to a Cognito access token (see scripts/setup_cognito.sh -> $BEARER_TOKEN, or the machine client_credentials token for control:* scopes). To use this remote config instead of the stdio .mcp.json, copy it over .mcp.json or register the URL directly with `claude mcp add`.",
   "mcpServers": {
     "sunstead-control": {
       "type": "http",
-      "url": "https://bedrock-agentcore.REGION.amazonaws.com/runtimes/ENCODED_RUNTIME_ARN/invocations?qualifier=DEFAULT"
+      "url": "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT",
+      "headers": {
+        "Authorization": "Bearer ${SUNSTEAD_TOKEN}"
+      }
     }
   }
 }
