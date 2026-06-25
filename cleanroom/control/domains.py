@@ -154,11 +154,47 @@ def _byo_agent_bundle() -> DomainBundle:
 
 # Domain TaskSpecs select their bundle by workload_id. Keep these keys in sync with
 # the committed task JSON files under cleanroom/control/tasks/.
+def _bond_extraction_bundle() -> DomainBundle:
+    from cleanroom.domains.bond_extraction import (
+        BondActions,
+        BondBenchmark,
+        BondPore,
+        ScriptedExtractor,
+        build_env_from_task,
+    )
+
+    return DomainBundle(
+        proposer=ScriptedExtractor(),  # Use scripted for deterministic offline runs.
+        benchmark=BondBenchmark(),
+        pore=BondPore(),
+        actions=BondActions(),
+        make_env=lambda task_spec=None: (
+            build_env_from_task(task_spec)
+            if task_spec
+            else {
+                "_cur_config": {
+                    "field_patterns": {},
+                    "validation_enabled": False,
+                    "field_schema": [],
+                },
+                "_extractor": None,
+                "_eval": {"train": [], "holdout": []},
+                "_grader": ("field_match", None),
+                "_loss_hash": "",
+                "_interpretation": [],
+                "_logclient": None,
+                "_config_stack": [],
+            }
+        ),
+    )
+
+
 _BUILDERS: dict[str, Callable[[], DomainBundle]] = {
     "kernel_matmul_32": _kernel_bundle,
     "quant_walkforward_momentum": _quant_bundle,
     "bio_molclass_f1": _bio_bundle,
     "byo_agent_demo": _byo_agent_bundle,
+    "bond_extraction": _bond_extraction_bundle,
 }
 
 

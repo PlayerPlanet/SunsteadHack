@@ -1,9 +1,15 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Zap, TrendingDown, AlertTriangle, BarChart2, FileText, Settings } from "lucide-react";
+import { Zap, TrendingDown, AlertTriangle, BarChart2, FileText, Settings, Upload } from "lucide-react";
 
 const sections = [
+  {
+    label: "Data",
+    items: [
+      { href: "/ingest", label: "Ingest dataset", icon: Upload },
+    ],
+  },
   {
     label: "Agent Loop",
     items: [

@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from cleanroom.control.ingest import ingest_bond_csv
 from cleanroom.control.server import mcp
 
 app = FastAPI(title="Sunstead Control Plane", version="0.1.0")
@@ -114,6 +115,33 @@ def pending_escalations():
 def adjudicate(crossing_id: int, body: AdjudicateBody):
     mcp.tool_adjudicate(crossing_id, body.decision, body.rationale, body.judge)
     return {"ok": True}
+
+
+# ── Ingestion ────────────────────────────────────────────────────────────────────
+
+class IngestBondBody(BaseModel):
+    name: str
+    objective: str
+    gold_csv: str
+    splits_csv: str | None = None
+    interpretation_csv: str | None = None
+    documents_csv: str | None = None
+
+
+@app.post("/ingest/bond")
+def ingest_bond(body: IngestBondBody):
+    try:
+        result = ingest_bond_csv(
+            name=body.name,
+            objective=body.objective,
+            gold_csv=body.gold_csv,
+            splits_csv=body.splits_csv,
+            interpretation_csv=body.interpretation_csv,
+            documents_csv=body.documents_csv,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # ── Stats (derived) ───────────────────────────────────────────────────────────

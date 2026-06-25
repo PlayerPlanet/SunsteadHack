@@ -1,0 +1,5 @@
+document_id,split
+doc-001,train
+doc-002,train
+doc-003,holdout
+doc-004,holdout

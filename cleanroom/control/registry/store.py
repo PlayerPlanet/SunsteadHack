@@ -41,8 +41,10 @@ class TaskRegistryStore:
                         # Keep task_id in data for TaskSpec constructor
                         spec = TaskSpec(**data)
                         self._active_tasks[spec.task_id] = spec
-            except (json.JSONDecodeError, ValueError, KeyError):
-                # Skip malformed files
+            except (json.JSONDecodeError, ValueError, KeyError, TypeError):
+                # Skip malformed files. TypeError covers task JSONs carrying extra
+                # keys that aren't TaskSpec fields (e.g. legacy BYO-agent task files);
+                # they aren't registry-dispatchable and must not crash the loader.
                 pass
 
     def list_tasks(self) -> list[TaskSpec]:
