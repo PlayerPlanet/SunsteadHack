@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle, XCircle, Clock } from "lucide-react";
+import TopBar from "@/components/TopBar";
 
 type Escalation = {
   id: number;
@@ -12,10 +13,10 @@ type Escalation = {
   judgment: { decision: string; judge_kind: string; rationale?: string } | null;
 };
 
-function riskColor(level: string) {
-  if (level === "HIGH") return "text-red-400 bg-red-400/10 border-red-400/20";
-  if (level === "MEDIUM") return "text-amber-400 bg-amber-400/10 border-amber-400/20";
-  return "text-neutral-400 bg-neutral-400/10 border-neutral-400/20";
+function riskBadge(level: string) {
+  if (level === "HIGH") return "bg-red-100 text-red-700 border-red-200";
+  if (level === "MEDIUM") return "bg-amber-100 text-amber-700 border-amber-200";
+  return "bg-gray-100 text-gray-600 border-gray-200";
 }
 
 function actionLabel(action: Escalation["action"]) {
@@ -59,129 +60,128 @@ export default function EscalationsPage() {
   const decided = escalations.filter((e) => e.judgment);
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-white">Escalations</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+    <>
+      <TopBar title="Escalations" />
+      <main className="flex-1 p-6 space-y-6 overflow-y-auto">
+
+        {/* Header strip */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
             Actions the frozen pore flagged. These are routed to you because the agent shouldn't decide alone.
           </p>
+          {pending.length > 0 && (
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+              {pending.length} pending
+            </span>
+          )}
         </div>
+
+        {/* Pending */}
         {pending.length > 0 && (
-          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-400/10 text-amber-400 border border-amber-400/20">
-            {pending.length} pending
-          </span>
-        )}
-      </div>
-
-      {/* Pending */}
-      {pending.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xs text-neutral-500 uppercase tracking-wider">Awaiting judgment</h2>
-          {pending.map((e) => (
-            <div key={e.id} className="bg-card border border-amber-400/20 rounded-lg p-5">
-              <div className="flex items-start gap-4">
-                <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded border font-mono ${riskColor(e.risk_level)}`}>
-                      {e.risk_level}
-                    </span>
-                    <span className="text-xs text-neutral-500">pore: {e.pore}</span>
-                    <span className="text-xs text-neutral-600 ml-auto">{timeAgo(e.created_at)}</span>
-                  </div>
-                  <p className="font-mono text-sm text-white mt-2">{actionLabel(e.action)}</p>
-                  {e.rationale && (
-                    <p className="text-xs text-neutral-400 mt-2 leading-relaxed">{e.rationale}</p>
-                  )}
-
-                  {adjudicating === e.id ? (
-                    <div className="mt-4 space-y-3">
-                      <textarea
-                        className="w-full bg-surface border border-border rounded p-3 text-sm text-neutral-200 placeholder-neutral-600 resize-none focus:outline-none focus:border-neutral-500"
-                        rows={3}
-                        placeholder="Rationale (optional)…"
-                        value={rationale}
-                        onChange={(ev) => setRationale(ev.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => adjudicate(e.id, "approve")}
-                          className="px-4 py-2 text-sm rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => adjudicate(e.id, "reject")}
-                          className="px-4 py-2 text-sm rounded bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
-                        >
-                          Reject
-                        </button>
-                        <button
-                          onClick={() => setAdjudicating(null)}
-                          className="px-4 py-2 text-sm rounded text-neutral-500 hover:text-neutral-300 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+          <div className="space-y-3">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Awaiting judgment</h2>
+            {pending.map((e) => (
+              <div key={e.id} className="bg-white border border-amber-200 rounded-xl shadow-sm p-5">
+                <div className="flex items-start gap-4">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className={`text-xs px-2 py-0.5 rounded border font-semibold ${riskBadge(e.risk_level)}`}>
+                        {e.risk_level}
+                      </span>
+                      <span className="text-xs text-gray-400">pore: {e.pore}</span>
+                      <span className="text-xs text-gray-300 ml-auto">{timeAgo(e.created_at)}</span>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => setAdjudicating(e.id)}
-                      className="mt-3 px-3 py-1.5 text-xs rounded border border-border text-neutral-400 hover:text-neutral-200 hover:border-neutral-500 transition-colors"
-                    >
-                      Adjudicate →
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Decided */}
-      {decided.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-xs text-neutral-500 uppercase tracking-wider">Decided</h2>
-          {decided.map((e) => (
-            <div key={e.id} className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-start gap-4">
-                {e.judgment?.decision === "approve" ? (
-                  <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded border font-mono ${riskColor(e.risk_level)}`}>
-                      {e.risk_level}
-                    </span>
-                    <span className="text-xs text-neutral-500">pore: {e.pore}</span>
-                    <span className={`text-xs ml-auto ${e.judgment?.decision === "approve" ? "text-emerald-400" : "text-red-400"}`}>
-                      {e.judgment?.decision} · {e.judgment?.judge_kind}
-                    </span>
-                  </div>
-                  <p className="font-mono text-sm text-neutral-300 mt-1">{actionLabel(e.action)}</p>
-                  {e.judgment?.rationale && (
-                    <p className="text-xs text-neutral-500 mt-1 leading-relaxed line-clamp-2">
-                      {e.judgment.rationale}
+                    <p className="font-mono text-sm text-gray-900 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                      {actionLabel(e.action)}
                     </p>
-                  )}
+                    {e.rationale && (
+                      <p className="text-xs text-gray-500 mt-2 leading-relaxed">{e.rationale}</p>
+                    )}
+                    {adjudicating === e.id ? (
+                      <div className="mt-4 space-y-3">
+                        <textarea
+                          className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent"
+                          rows={3}
+                          placeholder="Rationale (optional)…"
+                          value={rationale}
+                          onChange={(ev) => setRationale(ev.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => adjudicate(e.id, "approve")}
+                            className="px-4 py-2 text-sm rounded-lg bg-navy text-white font-medium hover:bg-navy-dark transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => adjudicate(e.id, "reject")}
+                            className="px-4 py-2 text-sm rounded-lg bg-red-50 border border-red-200 text-red-600 font-medium hover:bg-red-100 transition-colors"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            onClick={() => setAdjudicating(null)}
+                            className="px-4 py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAdjudicating(e.id)}
+                        className="mt-3 px-4 py-1.5 text-xs rounded-lg border border-navy text-navy font-medium hover:bg-navy hover:text-white transition-colors"
+                      >
+                        Adjudicate →
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
-      {escalations.length === 0 && (
-        <div className="bg-card border border-border rounded-lg p-12 text-center">
-          <Clock className="w-8 h-8 text-neutral-600 mx-auto mb-3" />
-          <p className="text-neutral-500 text-sm">No escalations yet.</p>
-          <p className="text-neutral-600 text-xs mt-1">The pore will route decisions here when the agent reaches its edge.</p>
-        </div>
-      )}
-    </div>
+        {/* Decided */}
+        {decided.length > 0 && (
+          <div className="space-y-2">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Decided</h2>
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100 overflow-hidden">
+              {decided.map((e) => (
+                <div key={e.id} className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+                  {e.judgment?.decision === "approve"
+                    ? <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    : <XCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs px-2 py-0.5 rounded border font-semibold ${riskBadge(e.risk_level)}`}>
+                        {e.risk_level}
+                      </span>
+                      <span className="text-xs text-gray-400">pore: {e.pore}</span>
+                      <span className={`text-xs ml-auto font-semibold ${e.judgment?.decision === "approve" ? "text-emerald-600" : "text-red-500"}`}>
+                        {e.judgment?.decision} · {e.judgment?.judge_kind}
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs text-gray-600 mt-1">{actionLabel(e.action)}</p>
+                    {e.judgment?.rationale && (
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-1">{e.judgment.rationale}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {escalations.length === 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-12 text-center">
+            <Clock className="w-8 h-8 text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm font-medium">No escalations yet</p>
+            <p className="text-gray-300 text-xs mt-1">The pore will route decisions here when the agent reaches its edge.</p>
+          </div>
+        )}
+      </main>
+    </>
   );
 }

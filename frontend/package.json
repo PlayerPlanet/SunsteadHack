@@ -8,12 +8,13 @@
     "start": "next start"
   },
   "dependencies": {
+    "lucide-react": "^0.378.0",
     "next": "14.2.0",
+    "postgres": "^3.4.4",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.12.0",
-    "postgres": "^3.4.4",
-    "lucide-react": "^0.378.0"
+    "vercel": "^54.17.0"
   },
   "devDependencies": {
     "@types/node": "^20",

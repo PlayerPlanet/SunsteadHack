@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import BoundaryChart from "@/components/BoundaryChart";
 import LongitudinalChart from "@/components/LongitudinalChart";
+import TopBar from "@/components/TopBar";
 
 export default function BoundaryPage() {
   const [data, setData] = useState<any>(null);
@@ -12,118 +13,90 @@ export default function BoundaryPage() {
 
   const spatial = data?.spatial ?? [];
   const longitudinal = data?.longitudinal ?? [];
-
   const boundary = spatial.find((d: any) => d.escalation_rate > 0 && d.correctness < 90)?.drift ?? null;
-  const bendPct = longitudinal.length >= 2
-    ? Math.round(
-        ((longitudinal[longitudinal.length - 1].escalations_frozen -
-          longitudinal[longitudinal.length - 1].escalations_membrane) /
-          longitudinal[longitudinal.length - 1].escalations_frozen) *
-          100
-      )
+  const last = longitudinal[longitudinal.length - 1];
+  const bendPct = last
+    ? Math.round(((last.escalations_frozen - last.escalations_membrane) / last.escalations_frozen) * 100)
     : null;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold text-white">Autonomy boundary</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Two live readings off the escalation log. Neither is asserted — both are measured.
-        </p>
-      </div>
+    <>
+      <TopBar title="Autonomy Boundary" />
+      <main className="flex-1 p-6 space-y-6 overflow-y-auto">
 
-      {/* Spatial */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="flex items-start justify-between mb-1">
-          <div>
-            <h2 className="text-sm font-medium text-white">Spatial — where the edge is now</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              Escalation rate and autonomous correctness, binned by workload drift from baseline.
+        {/* Calibration gap strip */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Pore precision", value: "46.7%", sub: "stops confirmed by human", color: "text-gray-900" },
+            { label: "False-stop rate", value: "53.3%", sub: "human said agent could have acted", color: "text-amber-600" },
+            { label: "Gap learnable", value: "93%", sub: "LOO accuracy · 7% is irreducible", color: "text-emerald-600" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">{s.label}</p>
+              <p className={`text-3xl font-semibold tabular-nums ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-gray-400 mt-1">{s.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Spatial */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Spatial — where the edge is now</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Escalation rate and autonomous correctness, binned by workload drift.</p>
+            </div>
+            {boundary && (
+              <div className="text-right">
+                <p className="text-xs text-gray-400">Boundary at</p>
+                <p className="text-xl font-semibold text-red-500">drift {boundary.toFixed(1)}</p>
+              </div>
+            )}
+          </div>
+          <div className="p-4">
+            {spatial.length > 0
+              ? <BoundaryChart data={spatial} />
+              : <div className="h-72 flex items-center justify-center text-gray-300 text-sm">Loading…</div>}
+          </div>
+          <div className="px-6 pb-5">
+            <div className="flex gap-6 text-xs text-gray-400">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" /> Autonomous correctness</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-amber-400 inline-block rounded" /> Escalation rate</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-red-400 inline-block rounded border-dashed" style={{ borderTop: "1px dashed" }} /> Boundary</span>
+            </div>
+            <p className="mt-3 text-xs text-gray-400 border-t border-gray-100 pt-3">
+              Proxy caveat: the frozen pore gates blast-radius + irreversibility — a lower bound on, not identical to, the true epistemic edge.
             </p>
           </div>
-          {boundary && (
-            <div className="text-right">
-              <p className="text-xs text-neutral-500">Boundary at</p>
-              <p className="text-lg font-semibold text-red-400">drift {boundary.toFixed(1)}</p>
-            </div>
-          )}
         </div>
-        <div className="mt-4">
-          {spatial.length > 0 ? (
-            <BoundaryChart data={spatial} />
-          ) : (
-            <div className="h-80 flex items-center justify-center text-neutral-600 text-sm">Loading…</div>
-          )}
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-px bg-emerald-500 inline-block" />
-            <span className="text-neutral-500">Autonomous correctness — stays high in the trustworthy region</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-px bg-amber-400 inline-block" />
-            <span className="text-neutral-500">Escalation rate — rises as world drifts from familiar territory</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-px bg-red-500 border-dashed inline-block" style={{ borderTop: "1px dashed" }} />
-            <span className="text-neutral-500">Boundary — where either line crosses the threshold</span>
-          </div>
-        </div>
-        <p className="mt-4 text-xs text-neutral-600 border-t border-border pt-4">
-          Proxy caveat: the frozen pore gates blast-radius + irreversibility — a lower bound on, not identical to,
-          the true epistemic edge. The coupling is structural: as the world drifts, the genuinely-best fix becomes
-          more systemic or irreversible, and the frozen gate catches exactly those.
-        </p>
-      </div>
 
-      {/* Longitudinal */}
-      <div className="bg-card border border-border rounded-lg p-6">
-        <div className="flex items-start justify-between mb-1">
-          <div>
-            <h2 className="text-sm font-medium text-white">Longitudinal — whether the frontier recedes</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              Escalations per unit work, cumulative. Flat = frozen pore (by design). Dashed = shadow membrane (Stage 2).
+        {/* Longitudinal */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Longitudinal — whether the frontier recedes</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Escalations per unit work. Flat = frozen pore (by design). Dashed = shadow membrane (Stage 2).</p>
+            </div>
+            {bendPct !== null && (
+              <div className="text-right">
+                <p className="text-xs text-gray-400">Membrane bends curve</p>
+                <p className="text-xl font-semibold text-navy">−{bendPct}%</p>
+              </div>
+            )}
+          </div>
+          <div className="p-4">
+            {longitudinal.length > 0
+              ? <LongitudinalChart data={longitudinal} />
+              : <div className="h-56 flex items-center justify-center text-gray-300 text-sm">Loading…</div>}
+          </div>
+          <div className="px-6 pb-5">
+            <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
+              The shadow membrane runs alongside but never acts. The bend it produces is measured against the frozen ruler, not produced by moving it. False-clear rate: 0%.
             </p>
           </div>
-          {bendPct !== null && (
-            <div className="text-right">
-              <p className="text-xs text-neutral-500">Membrane bends curve</p>
-              <p className="text-lg font-semibold text-emerald-400">−{bendPct}%</p>
-            </div>
-          )}
         </div>
-        <div className="mt-4">
-          {longitudinal.length > 0 ? (
-            <LongitudinalChart data={longitudinal} />
-          ) : (
-            <div className="h-64 flex items-center justify-center text-neutral-600 text-sm">Loading…</div>
-          )}
-        </div>
-        <p className="mt-4 text-xs text-neutral-600 border-t border-border pt-4">
-          With today's frozen pore the line is flat by design — and that flat line is the point. The shadow membrane
-          (Stage 2) runs alongside but never acts: it logs what it would decide. The bend it produces is measured
-          against the frozen ruler, not produced by moving it. False-clear rate: 0%.
-        </p>
-      </div>
 
-      {/* Calibration gap */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Pore precision</p>
-          <p className="text-3xl font-semibold text-white">46.7%</p>
-          <p className="text-xs text-neutral-500 mt-1">of stops confirmed by human</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">False-stop rate</p>
-          <p className="text-3xl font-semibold text-amber-400">53.3%</p>
-          <p className="text-xs text-neutral-500 mt-1">human said "agent could have acted"</p>
-        </div>
-        <div className="bg-card border border-border rounded-lg p-5">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">Gap learnable</p>
-          <p className="text-3xl font-semibold text-emerald-400">93%</p>
-          <p className="text-xs text-neutral-500 mt-1">LOO accuracy — residual 7% is the irreducible edge</p>
-        </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 }
