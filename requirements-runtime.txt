@@ -9,3 +9,4 @@ uvicorn>=0.30
 pyjwt[crypto]>=2.8       # decode the AgentCore-forwarded token for per-tool scope
 psycopg[binary]>=3.1.0   # Aiven Postgres (the governance log / KB), as sunstead_app
 numpy>=1.24.0
+boto3>=1.34               # fetch the Aiven DSN from Secrets Manager at startup

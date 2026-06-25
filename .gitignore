@@ -33,3 +33,10 @@ cells/agent-escalation-log/inbox/*.json
 # Local secret material written by scripts/provision_control_roles.py — never commit
 *.secret
 app_dsn.secret
+
+# AgentCore generated/secret/vendored bits (sunsteadcontrol project)
+sunsteadcontrol/app/sunstead_control/cleanroom/
+sunsteadcontrol/agentcore/.env.local
+sunsteadcontrol/agentcore/.cli/
+sunsteadcontrol/agentcore/cdk/node_modules/
+sunsteadcontrol/**/__pycache__/
