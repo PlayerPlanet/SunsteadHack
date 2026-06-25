@@ -69,7 +69,14 @@ export async function callControlJson<T = unknown>(
     const status = /scope|role|denied|permission|forbidden|unauthor/i.test(res.text) ? 403 : 502;
     throw new ControlError(res.text || `${name} failed`, status);
   }
-  return parseToolText(res.text) as T;
+  const parsed = parseToolText(res.text);
+  // The runtime envelopes every tool payload as { result: <payload> }. Unwrap it so callers
+  // receive the bare array/object/scalar they expect (list_tasks → array, dispatch_run →
+  // run_id string, etc.) instead of the envelope object.
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && "result" in parsed) {
+    return (parsed as { result: T }).result;
+  }
+  return parsed as T;
 }
 
 /** The signed-in caller's Cognito access token, or a 401 ControlError. */
