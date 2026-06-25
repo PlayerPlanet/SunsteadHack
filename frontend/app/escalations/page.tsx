@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { AlertTriangle, CheckCircle, XCircle, Clock, Lock } from "lucide-react";
 import TopBar from "@/components/TopBar";
+import { roleFromGroups, canAdjudicate } from "@/lib/roles";
 
 type Escalation = {
   id: number;
@@ -36,9 +38,16 @@ function timeAgo(iso: string) {
 }
 
 export default function EscalationsPage() {
+  // Role is derived from the signed-in user's Cognito groups. This only gates the UI;
+  // the real enforcement is the adjudicate route -> runtime -> SET ROLE in Postgres.
+  const { data: session } = useSession();
+  const role = roleFromGroups(session?.groups);
+  const mayAdjudicate = canAdjudicate(role);
+
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [adjudicating, setAdjudicating] = useState<number | null>(null);
   const [rationale, setRationale] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const load = () =>
     fetch("/api/escalations").then((r) => r.json()).then((d) => setEscalations(d.escalations ?? []));
@@ -46,11 +55,19 @@ export default function EscalationsPage() {
   useEffect(() => { load(); }, []);
 
   async function adjudicate(id: number, decision: "approve" | "reject") {
-    await fetch(`/api/escalations/${id}/adjudicate`, {
+    setError(null);
+    const res = await fetch(`/api/escalations/${id}/adjudicate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ decision, rationale }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      // The control plane refused (scope / SET ROLE) — surface it verbatim; this is the
+      // truth boundary talking, not a UI bug.
+      setError(body.error ?? `adjudicate failed (${res.status})`);
+      return;
+    }
     setAdjudicating(null);
     setRationale("");
     load();
@@ -76,6 +93,20 @@ export default function EscalationsPage() {
           )}
         </div>
 
+        {!mayAdjudicate && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 bg-white border border-gray-200 rounded-xl shadow-sm px-4 py-3">
+            <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            View only — adjudicating requires the operator role. Ask an operator to add you to the
+            <span className="font-mono text-gray-700">sunstead-operators</span> group.
+          </div>
+        )}
+
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            {error}
+          </div>
+        )}
+
         {/* Pending */}
         {pending.length > 0 && (
           <div className="space-y-3">
@@ -98,7 +129,7 @@ export default function EscalationsPage() {
                     {e.rationale && (
                       <p className="text-xs text-gray-500 mt-2 leading-relaxed">{e.rationale}</p>
                     )}
-                    {adjudicating === e.id ? (
+                    {mayAdjudicate && (adjudicating === e.id ? (
                       <div className="mt-4 space-y-3">
                         <textarea
                           className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm text-gray-800 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent"
@@ -135,7 +166,7 @@ export default function EscalationsPage() {
                       >
                         Adjudicate →
                       </button>
-                    )}
+                    ))}
                   </div>
                 </div>
               </div>
