@@ -1,65 +1,44 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import { getDb } from "@/lib/db";
-import { mockRuns, mockCurve } from "@/lib/mock";
+import { callControlJson, requireBearer, errToResponse } from "@/lib/control";
 
-// Reads → pg → Aiven sunstead_control (BFF design):
-//   GET /api/runs                — list runs       (run table)
-//   GET /api/runs?task_id=X       — descent curve   (experiment table)
-// Dispatch → web/worker split: the web tier ENQUEUES a run (state='queued'); a worker
-// process (`python -m cleanroom.control.worker`) claims it via run_queued_idx and runs
-// the loop. We never run the loop in a request.
-export const runtime = "nodejs";
+// Runs + descent curve via the AgentCore edge API (NOT direct Postgres):
+//   GET /api/runs            — list_runs   (RunStatus[])
+//   GET /api/runs?task_id=X   — read_curve  (experiment[] for the descent chart)
+//   POST /api/runs            — dispatch_run (enqueues; the runtime's worker runs the loop)
+// Every call forwards the user's Cognito bearer; the runtime enforces scope + SET ROLE.
+export const runtime = "nodejs"; // MCP client egress isn't Edge-safe
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const taskId = searchParams.get("task_id");
-  const sql = getDb();
-
-  if (!sql) return NextResponse.json(taskId ? { curve: mockCurve } : { runs: mockRuns });
-
   try {
+    const bearer = await requireBearer();
     if (taskId) {
-      const rows = await sql`
-        SELECT id, task_id, candidate, baseline_p99, candidate_p99, cost_estimate,
-               correctness_ok, within_noise, decision, created_at
-        FROM experiment
-        WHERE task_id = ${taskId}
-        ORDER BY id`;
-      const curve = rows.map((r: any, i: number) => ({ n: i + 1, ...r }));
+      const exps = await callControlJson<any[]>(bearer, "read_curve", { task_id: taskId });
+      const curve = (exps ?? []).map((r, i) => ({ n: i + 1, ...r }));
       return NextResponse.json({ curve });
     }
-
-    const runs = await sql`
-      SELECT run_id, task_id, model, state, iterations_done, iterations_target,
-             best_p99, started_at, ended_at
-      FROM run
-      ORDER BY started_at DESC NULLS LAST`;
-    return NextResponse.json({ runs });
-  } catch {
-    return NextResponse.json(taskId ? { curve: mockCurve } : { runs: mockRuns });
+    const runs = await callControlJson<any[]>(bearer, "list_runs", {});
+    return NextResponse.json({ runs: runs ?? [] });
+  } catch (e) {
+    return errToResponse(e);
   }
 }
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const taskId = body.task_id;
-  const model = body.model ?? "claude-haiku-4-5-20251001";
-  const iterations = Number(body.iterations ?? 4);
-  if (!taskId) {
+  if (!body.task_id) {
     return NextResponse.json({ error: "task_id is required" }, { status: 400 });
   }
-
-  const sql = getDb();
-  if (!sql) return NextResponse.json({ run_id: `mock-${Date.now()}`, state: "queued", mock: true });
-
   try {
-    const run_id = randomUUID().replace(/-/g, "").slice(0, 12);
-    await sql`
-      INSERT INTO run (run_id, task_id, model, state, iterations_done, iterations_target)
-      VALUES (${run_id}, ${taskId}, ${model}, 'queued', 0, ${iterations})`;
+    const bearer = await requireBearer();
+    const run_id = await callControlJson<string>(bearer, "dispatch_run", {
+      task_id: body.task_id,
+      model: body.model ?? "claude-haiku-4-5-20251001",
+      iterations: Number(body.iterations ?? 4),
+    });
     return NextResponse.json({ run_id, state: "queued" });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (e) {
+    return errToResponse(e);
   }
 }
