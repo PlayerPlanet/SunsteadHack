@@ -1,0 +1,9 @@
+{
+  "//": "Remote variant of the plugin MCP config. Use this instead of .mcp.json to point the SunsteadHack control plugin at the deployed AWS server (streamable-HTTP transport) rather than spawning a local stdio subprocess. The OAuth flow is handled by Claude's remote-connector support against the Authorization Server advertised in the server's /.well-known/oauth-protected-resource document.",
+  "mcpServers": {
+    "sunstead-control": {
+      "type": "http",
+      "url": "https://control.sunstead.example/mcp"
+    }
+  }
+}

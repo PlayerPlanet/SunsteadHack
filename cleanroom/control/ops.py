@@ -27,6 +27,35 @@ from cleanroom.control.registry.types import TaskSpec
 from cleanroom.types import Candidate
 
 
+def bind_domain(task_spec, task_spec_dict: dict, ctx: "OperatorContext"):
+    """Bind an epic-#8 domain bundle to a run, if `task_spec` is a domain task.
+
+    For kernel/quant/bio tasks, swap in the domain's proposer/benchmark/pore/actions
+    and seed a fresh domain env into task_spec_dict["conn"], so the SAME loop drives a
+    different action space. ctx.logclient is preserved so experiments still land in the
+    real governance log. Non-domain (Postgres) tasks return the inputs unchanged.
+
+    Shared by both dispatch paths: dispatch_run (thread mode) and the queue worker
+    (cleanroom.control.worker), so a domain task behaves identically whichever runs it.
+
+    Returns:
+        (task_spec_dict, ctx) — possibly-rebound copies.
+    """
+    bundle = resolve_domain(task_spec)
+    if bundle is None:
+        return task_spec_dict, ctx
+    task_spec_dict = dict(task_spec_dict)
+    task_spec_dict["conn"] = bundle.make_env()
+    ctx = OperatorContext(
+        proposer=bundle.proposer,
+        benchmark=bundle.benchmark,
+        pore=bundle.pore,
+        logclient=ctx.logclient,
+        actions=bundle.actions,
+    )
+    return task_spec_dict, ctx
+
+
 class OperatorContext:
     """Injected context for a single dispatch — provides loop dependencies.
 
@@ -172,9 +201,19 @@ class Operator:
         return spec.task_id
 
     def dispatch_run(
-        self, task_id: str, *, model: str, iterations: int, ctx: OperatorContext
+        self, task_id: str, *, model: str, iterations: int, ctx: OperatorContext,
+        mode: str = "thread",
     ) -> str:
-        """Dispatch a run (fire-and-return, background thread).
+        """Dispatch a run (fire-and-return).
+
+        Two execution modes:
+          * "thread" (default) — run in a background daemon thread in THIS process.
+            Right for the local stdio plugin: one trusted operator, one process.
+          * "queue" — leave the run in state 'queued' and return immediately; a
+            separate worker process (cleanroom.control.worker) claims and runs it.
+            This is the deployment-grade split: a stateless, load-balanced web tier
+            never executes long runs in a request thread.
+
 
         Flow:
           1. Generate run_id = uuid.uuid4().hex[:12]
@@ -214,6 +253,7 @@ class Operator:
             started_at=None,
             ended_at=None,
             error_msg=None,
+            iterations_target=iterations,
         )
         self.run_store.set(run_id, initial_status)
 
@@ -246,22 +286,15 @@ class Operator:
             "default_model": task_spec.default_model,
         }
 
-        # Epic #8: if this is a domain task (kernel/quant/bio), bind its judge +
-        # action adapter + proposer and seed a fresh domain env into task_spec["conn"]
-        # so the SAME loop drives a different action space through this unchanged
-        # dispatch path. We keep ctx.logclient so experiments still land in the real
-        # governance log; only the swappable components change. Non-domain (Postgres)
-        # tasks resolve to None and use the injected ctx + builtin cleanroom.actions.
-        bundle = resolve_domain(task_spec)
-        if bundle is not None:
-            task_spec_dict["conn"] = bundle.make_env()
-            ctx = OperatorContext(
-                proposer=bundle.proposer,
-                benchmark=bundle.benchmark,
-                pore=bundle.pore,
-                logclient=ctx.logclient,
-                actions=bundle.actions,
-            )
+        # Queue mode: leave the run 'queued' for a separate worker to claim. Domain
+        # binding + env creation happen in the worker (cleanroom.control.worker), not
+        # in this stateless web tier — so we return before touching resolve_domain.
+        if mode == "queue":
+            return run_id
+
+        # Thread mode: bind the epic-#8 domain bundle (kernel/quant/bio) if applicable,
+        # then run inline in a background daemon thread (fire-and-return).
+        task_spec_dict, ctx = bind_domain(task_spec, task_spec_dict, ctx)
 
         # Launch background thread (fire-and-return)
         dispatch_background_run(

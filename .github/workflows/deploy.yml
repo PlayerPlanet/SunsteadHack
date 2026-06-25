@@ -1,0 +1,66 @@
+name: deploy
+
+# App rollout (NOT infra): build the image, push to ECR, and force a new ECS
+# deployment of the web + worker services so they pull the new image. Infra changes
+# (VPC/ALB/Cognito/task defs) go through infra.yml (manual terraform), keeping this
+# path fast and low-blast-radius. Auth to AWS is via GitHub OIDC — no static keys.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cleanroom/**"
+      - "Dockerfile"
+      - "pyproject.toml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # assume the deploy role via OIDC
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-north-1' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'sunstead-control' }}
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER || 'sunstead-control' }}
+  WEB_SERVICE: ${{ vars.WEB_SERVICE || 'sunstead-control-web' }}
+  WORKER_SERVICE: ${{ vars.WORKER_SERVICE || 'sunstead-control-worker' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production   # gate with required reviewers in repo settings if desired
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          IMAGE="$REGISTRY/$ECR_REPOSITORY"
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Force new deployment (web + worker pull :latest)
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$WEB_SERVICE" --force-new-deployment >/dev/null
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$WORKER_SERVICE" --force-new-deployment >/dev/null
+
+      - name: Wait for services to stabilize
+        run: |
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$WEB_SERVICE" "$WORKER_SERVICE"

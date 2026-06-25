@@ -31,5 +31,8 @@ create table run (
   best_p99 double precision,
   started_at timestamptz,
   ended_at timestamptz,
-  error_msg text
+  error_msg text,
+  iterations_target integer not null default 0
 );
+-- A worker polls for queued runs; this partial index keeps the claim query cheap.
+create index if not exists run_queued_idx on run (run_id) where state = 'queued';

@@ -17,6 +17,10 @@ class RunStatus:
         started_at: ISO timestamp when run transitioned to 'running', or None.
         ended_at: ISO timestamp when run finished, or None.
         error_msg: Error message if state is 'failed', or None.
+        iterations_target: Iterations requested at dispatch. Carries the dispatch
+            parameter through the queue so a separate worker process (the
+            deployment-grade web/worker split) knows how long to run. Defaults to 0
+            for back-compat with callers that construct RunStatus directly.
     """
 
     run_id: str
@@ -28,3 +32,4 @@ class RunStatus:
     started_at: str | None
     ended_at: str | None
     error_msg: str | None
+    iterations_target: int = 0
