@@ -28,9 +28,9 @@ export default function DescentChart({ data, baseline }: { data: Exp[]; baseline
         />
         <Tooltip
           contentStyle={{ background: "#1c1c1c", border: "1px solid #333", borderRadius: 6 }}
-          formatter={(val: number, _: string, props: { payload: Exp }) => [
+          formatter={(val: number, _: string, item: any) => [
             `${val}ms`,
-            props.payload.decision,
+            item?.payload?.decision ?? "",
           ]}
           labelFormatter={(v) => `Experiment ${v}`}
         />
