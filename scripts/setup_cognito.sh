@@ -4,7 +4,7 @@
 # a machine (client-credentials) app client, and a test user for a quick bearer token.
 #
 # Prints the values AgentCore needs: Discovery URL + Client ID (for `agentcore create`)
-# and a Bearer token (for a smoke test). Requires: aws CLI, jq.
+# and a Bearer token (for a smoke test). Requires: aws CLI (uses --query, no jq).
 #
 #   REGION=us-west-2 USERNAME=ops PASSWORD='<strong>' source scripts/setup_cognito.sh
 #
@@ -19,7 +19,7 @@ RESOURCE_ID="${RESOURCE_ID:-sunstead-control}"   # OAuth audience identifier
 POOL_ID=$(aws cognito-idp create-user-pool \
   --pool-name "sunstead-control-pool" \
   --policies '{"PasswordPolicy":{"MinimumLength":8}}' \
-  --region "$REGION" | jq -r '.UserPool.Id')
+  --region "$REGION" --query 'UserPool.Id' --output text)
 
 # Resource server exposes the per-tool scopes the MCP server enforces (auth.TOOL_SCOPES).
 aws cognito-idp create-resource-server \
@@ -43,13 +43,13 @@ MACHINE_CLIENT_ID=$(aws cognito-idp create-user-pool-client \
   --allowed-o-auth-scopes \
      "$RESOURCE_ID/control:read" "$RESOURCE_ID/control:register" \
      "$RESOURCE_ID/control:dispatch" "$RESOURCE_ID/control:adjudicate" \
-  --region "$REGION" | jq -r '.UserPoolClient.ClientId')
+  --region "$REGION" --query 'UserPoolClient.ClientId' --output text)
 
 # Interactive client + test user for a quick USER_PASSWORD bearer token.
 export CLIENT_ID=$(aws cognito-idp create-user-pool-client \
   --user-pool-id "$POOL_ID" --client-name "sunstead-test" --no-generate-secret \
   --explicit-auth-flows "ALLOW_USER_PASSWORD_AUTH" "ALLOW_REFRESH_TOKEN_AUTH" \
-  --region "$REGION" | jq -r '.UserPoolClient.ClientId')
+  --region "$REGION" --query 'UserPoolClient.ClientId' --output text)
 aws cognito-idp admin-create-user --user-pool-id "$POOL_ID" --username "$USERNAME" \
   --region "$REGION" --message-action SUPPRESS >/dev/null
 aws cognito-idp admin-set-user-password --user-pool-id "$POOL_ID" --username "$USERNAME" \
@@ -57,7 +57,7 @@ aws cognito-idp admin-set-user-password --user-pool-id "$POOL_ID" --username "$U
 export BEARER_TOKEN=$(aws cognito-idp initiate-auth --client-id "$CLIENT_ID" \
   --auth-flow USER_PASSWORD_AUTH \
   --auth-parameters "USERNAME=$USERNAME,PASSWORD=$PASSWORD" \
-  --region "$REGION" | jq -r '.AuthenticationResult.AccessToken')
+  --region "$REGION" --query 'AuthenticationResult.AccessToken' --output text)
 
 export POOL_ID MACHINE_CLIENT_ID
 echo "Discovery URL : https://cognito-idp.$REGION.amazonaws.com/$POOL_ID/.well-known/openid-configuration"
