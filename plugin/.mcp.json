@@ -1,11 +1,19 @@
 {
   "mcpServers": {
     "sunstead-control": {
-      "command": "python",
+      "command": "/Users/noelmatero/SunsteadHack/.venv/bin/python",
       "args": ["-m", "cleanroom.control.server.mcp"],
       "env": {
         "comment": "Set CLEANROOM_PG_DSN to enable persistence to Aiven Postgres, e.g. CLEANROOM_PG_DSN='postgresql://user:pass@host:5432/db?sslmode=require'",
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/../.."
+        "PYTHONPATH": "/Users/noelmatero/SunsteadHack"
+      }
+    },
+    "sunstead-bench": {
+      "command": "/Users/noelmatero/SunsteadHack/.venv/bin/python",
+      "args": ["-m", "bonds_instrument.mcp_server"],
+      "env": {
+        "comment": "Input-driven benchmark: benchmark_agent(agent_import, materials_path). No infra needed; frozen non-agentic judge (issue #28).",
+        "PYTHONPATH": "/Users/noelmatero/SunsteadHack"
       }
     }
   }

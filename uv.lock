@@ -158,16 +158,28 @@ dev = [
 proposer = [
     { name = "anthropic" },
 ]
+server = [
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "starlette" },
+    { name = "uvicorn" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'proposer'", specifier = ">=0.40" },
+    { name = "httpx", marker = "extra == 'server'", specifier = ">=0.27" },
     { name = "mcp", marker = "extra == 'control'", specifier = ">=1.0" },
+    { name = "mcp", marker = "extra == 'server'", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=1.24.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1.0" },
+    { name = "pyjwt", extras = ["crypto"], marker = "extra == 'server'", specifier = ">=2.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
+    { name = "starlette", marker = "extra == 'server'", specifier = ">=0.40" },
+    { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.30" },
 ]
-provides-extras = ["dev", "proposer", "control"]
+provides-extras = ["dev", "proposer", "control", "server"]
 
 [[package]]
 name = "click"
