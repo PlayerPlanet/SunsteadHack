@@ -209,6 +209,17 @@ def tool_read_curve(task_id: str) -> list[dict]:
     return _json_safe(operator.read_curve(task_id, logclient=logclient))
 
 
+def tool_read_boundary() -> dict:
+    """Read the boundary instrument: spatial + longitudinal readings.
+
+    Returns:
+        {"spatial": [...], "longitudinal": [...], "proxy_caveat": str}.
+    """
+    operator = make_operator()
+    logclient = make_logclient()
+    return _json_safe(operator.read_boundary(logclient=logclient))
+
+
 # ==================== MCP Server Setup ====================
 
 
@@ -259,6 +270,11 @@ def build_server() -> "Any":
         tool_adjudicate, name="adjudicate", description="Write a human judgment on a crossing"
     )
     server.add_tool(tool_read_curve, name="read_curve", description="Read performance curve for a task")
+    server.add_tool(
+        tool_read_boundary,
+        name="read_boundary",
+        description="Read the boundary instrument (escalation-rate-vs-drift + escalations-per-unit-work)",
+    )
 
     return server
 

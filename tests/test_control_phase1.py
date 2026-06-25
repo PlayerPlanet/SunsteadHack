@@ -148,7 +148,32 @@ def test_mcp_server_builds_with_ten_tools():
     assert names == {
         "list_tasks", "get_task", "register_task", "dispatch_run", "get_run",
         "list_runs", "cancel_run", "pending_escalations", "adjudicate", "read_curve",
+        "read_boundary",
     }
+
+
+def test_read_boundary_shape_and_drift_semantics():
+    """The instrument's spatial reading: escalation rate rises with workload drift."""
+    lc = wiring.make_logclient()
+
+    def _exp(drift, decision):
+        lc.write_experiment(
+            task_id="t", model="m", drift_level=drift, candidate={"type": "index"},
+            baseline_p99=1.0, candidate_p99=1.0, cost_estimate=0.0,
+            correctness_ok=True, within_noise=False, decision=decision,
+        )
+
+    # drift 0.0 -> 0/2 escalated; drift 1.0 -> 2/2 escalated.
+    _exp(0.0, "keep"); _exp(0.0, "discard")
+    _exp(1.0, "escalated"); _exp(1.0, "escalated")
+
+    b = mcpmod.tool_read_boundary()
+    assert set(b) >= {"spatial", "longitudinal", "proxy_caveat"}
+    assert isinstance(b["proxy_caveat"], str) and b["proxy_caveat"]
+    rate = {round(r["drift_level"], 3): r["escalation_rate"] for r in b["spatial"]}
+    assert rate[0.0] == 0.0
+    assert rate[1.0] == 1.0  # escalation rate rises with drift — the spatial reading
+    assert isinstance(b["longitudinal"], list) and len(b["longitudinal"]) >= 1
 
 
 # --------------------------- CLI adapter ---------------------------

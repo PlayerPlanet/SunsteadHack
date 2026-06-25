@@ -8,6 +8,7 @@
     "runs",
     "escalations",
     "adjudicate",
-    "curve"
+    "curve",
+    "boundary"
   ]
 }

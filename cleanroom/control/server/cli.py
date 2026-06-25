@@ -73,6 +73,9 @@ def main(argv=None):
     curve_parser = subparsers.add_parser("read-curve", help="Read performance curve")
     curve_parser.add_argument("task_id", help="Task ID")
 
+    # read_boundary subcommand
+    subparsers.add_parser("read-boundary", help="Read the boundary instrument (spatial + longitudinal)")
+
     args = parser.parse_args(argv)
 
     # Print stderr note if running in-memory (helpful for operator awareness)
@@ -164,6 +167,11 @@ def main(argv=None):
         logclient = make_logclient()
         experiments = operator.read_curve(args.task_id, logclient=logclient)
         print(json.dumps(experiments, indent=2, default=str))
+
+    elif args.command == "read-boundary":
+        logclient = make_logclient()
+        boundary = operator.read_boundary(logclient=logclient)
+        print(json.dumps(boundary, indent=2, default=str))
 
     else:
         parser.print_help()
