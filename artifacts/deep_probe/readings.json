@@ -1,0 +1,677 @@
+{
+  "config": {
+    "iterations": 24,
+    "styles": [
+      "stationary",
+      "linear_ramp",
+      "step_shock",
+      "oscillating",
+      "burst",
+      "accel_creep"
+    ],
+    "mock": false,
+    "optimizer": "claude-haiku-4-5",
+    "human": "claude-sonnet-4-6"
+  },
+  "combined": {
+    "n": 144,
+    "escalation_rate": 0.10416666666666667,
+    "spatial": [
+      {
+        "drift": 0.0,
+        "escalation_rate": 0.0,
+        "n": 8
+      },
+      {
+        "drift": 0.1,
+        "escalation_rate": 0.0,
+        "n": 63
+      },
+      {
+        "drift": 0.2,
+        "escalation_rate": 0.0,
+        "n": 9
+      },
+      {
+        "drift": 0.3,
+        "escalation_rate": 0.0,
+        "n": 9
+      },
+      {
+        "drift": 0.4,
+        "escalation_rate": 0.0,
+        "n": 4
+      },
+      {
+        "drift": 0.5,
+        "escalation_rate": 0.0,
+        "n": 8
+      },
+      {
+        "drift": 0.6,
+        "escalation_rate": 0.0,
+        "n": 3
+      },
+      {
+        "drift": 0.7,
+        "escalation_rate": 0.0,
+        "n": 8
+      },
+      {
+        "drift": 0.8,
+        "escalation_rate": 0.0,
+        "n": 8
+      },
+      {
+        "drift": 0.9,
+        "escalation_rate": 0.6190476190476191,
+        "n": 21
+      },
+      {
+        "drift": 1.0,
+        "escalation_rate": 0.6666666666666666,
+        "n": 3
+      }
+    ],
+    "calibration_gap": {
+      "n_escalated": 15,
+      "human_approved": 8,
+      "human_rejected": 7,
+      "false_stop_rate": 0.5333333333333333,
+      "pore_precision": 0.4666666666666667,
+      "by_regime": {
+        "regime_break": {
+          "n": 15,
+          "approve_rate": 0.5333333333333333
+        }
+      }
+    }
+  },
+  "by_style": {
+    "stationary": {
+      "style": "stationary",
+      "n": 24,
+      "escalation_rate": 0.0,
+      "spatial": [
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 24
+        }
+      ],
+      "longitudinal": [
+        {
+          "window": 1,
+          "cumulative": 4,
+          "mean_drift": 0.15,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 2,
+          "cumulative": 8,
+          "mean_drift": 0.15,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 3,
+          "cumulative": 12,
+          "mean_drift": 0.15,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 4,
+          "cumulative": 16,
+          "mean_drift": 0.15,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 5,
+          "cumulative": 20,
+          "mean_drift": 0.15,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 6,
+          "cumulative": 24,
+          "mean_drift": 0.15,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 0,
+        "human_approved": 0,
+        "human_rejected": 0,
+        "false_stop_rate": 0.0,
+        "pore_precision": 0.0,
+        "by_regime": {}
+      }
+    },
+    "linear_ramp": {
+      "style": "linear_ramp",
+      "n": 24,
+      "escalation_rate": 0.125,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 1.0,
+          "n": 2
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 0.5,
+          "n": 2
+        }
+      ],
+      "longitudinal": [
+        {
+          "window": 1,
+          "cumulative": 4,
+          "mean_drift": 0.0652,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 2,
+          "cumulative": 8,
+          "mean_drift": 0.2391,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 3,
+          "cumulative": 12,
+          "mean_drift": 0.4131,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 4,
+          "cumulative": 16,
+          "mean_drift": 0.587,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 5,
+          "cumulative": 20,
+          "mean_drift": 0.7609,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 6,
+          "cumulative": 24,
+          "mean_drift": 0.9348,
+          "escalated": 3,
+          "total": 4,
+          "ratio": 0.75
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 3,
+        "human_approved": 0,
+        "human_rejected": 3,
+        "false_stop_rate": 0.0,
+        "pore_precision": 1.0,
+        "by_regime": {
+          "regime_break": {
+            "n": 3,
+            "approve_rate": 0.0
+          }
+        }
+      }
+    },
+    "step_shock": {
+      "style": "step_shock",
+      "n": 24,
+      "escalation_rate": 0.20833333333333334,
+      "spatial": [
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 12
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.4166666666666667,
+          "n": 12
+        }
+      ],
+      "longitudinal": [
+        {
+          "window": 1,
+          "cumulative": 4,
+          "mean_drift": 0.1,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 2,
+          "cumulative": 8,
+          "mean_drift": 0.1,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 3,
+          "cumulative": 12,
+          "mean_drift": 0.1,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 4,
+          "cumulative": 16,
+          "mean_drift": 0.9,
+          "escalated": 4,
+          "total": 4,
+          "ratio": 1.0
+        },
+        {
+          "window": 5,
+          "cumulative": 20,
+          "mean_drift": 0.9,
+          "escalated": 1,
+          "total": 4,
+          "ratio": 0.25
+        },
+        {
+          "window": 6,
+          "cumulative": 24,
+          "mean_drift": 0.9,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 5,
+        "human_approved": 3,
+        "human_rejected": 2,
+        "false_stop_rate": 0.6,
+        "pore_precision": 0.4,
+        "by_regime": {
+          "regime_break": {
+            "n": 5,
+            "approve_rate": 0.6
+          }
+        }
+      }
+    },
+    "oscillating": {
+      "style": "oscillating",
+      "n": 24,
+      "escalation_rate": 0.08333333333333333,
+      "spatial": [
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 1.0,
+          "n": 2
+        }
+      ],
+      "longitudinal": [
+        {
+          "window": 1,
+          "cumulative": 4,
+          "mean_drift": 0.7366,
+          "escalated": 1,
+          "total": 4,
+          "ratio": 0.25
+        },
+        {
+          "window": 2,
+          "cumulative": 8,
+          "mean_drift": 0.5866,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 3,
+          "cumulative": 12,
+          "mean_drift": 0.1768,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 4,
+          "cumulative": 16,
+          "mean_drift": 0.7366,
+          "escalated": 1,
+          "total": 4,
+          "ratio": 0.25
+        },
+        {
+          "window": 5,
+          "cumulative": 20,
+          "mean_drift": 0.5866,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 6,
+          "cumulative": 24,
+          "mean_drift": 0.1768,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 2,
+        "human_approved": 2,
+        "human_rejected": 0,
+        "false_stop_rate": 1.0,
+        "pore_precision": 0.0,
+        "by_regime": {
+          "regime_break": {
+            "n": 2,
+            "approve_rate": 1.0
+          }
+        }
+      }
+    },
+    "burst": {
+      "style": "burst",
+      "n": 24,
+      "escalation_rate": 0.125,
+      "spatial": [
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 20
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.75,
+          "n": 4
+        }
+      ],
+      "longitudinal": [
+        {
+          "window": 1,
+          "cumulative": 4,
+          "mean_drift": 0.12,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 2,
+          "cumulative": 8,
+          "mean_drift": 0.51,
+          "escalated": 1,
+          "total": 4,
+          "ratio": 0.25
+        },
+        {
+          "window": 3,
+          "cumulative": 12,
+          "mean_drift": 0.12,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 4,
+          "cumulative": 16,
+          "mean_drift": 0.315,
+          "escalated": 1,
+          "total": 4,
+          "ratio": 0.25
+        },
+        {
+          "window": 5,
+          "cumulative": 20,
+          "mean_drift": 0.315,
+          "escalated": 1,
+          "total": 4,
+          "ratio": 0.25
+        },
+        {
+          "window": 6,
+          "cumulative": 24,
+          "mean_drift": 0.12,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 3,
+        "human_approved": 1,
+        "human_rejected": 2,
+        "false_stop_rate": 0.3333333333333333,
+        "pore_precision": 0.6666666666666666,
+        "by_regime": {
+          "regime_break": {
+            "n": 3,
+            "approve_rate": 0.3333333333333333
+          }
+        }
+      }
+    },
+    "accel_creep": {
+      "style": "accel_creep",
+      "n": 24,
+      "escalation_rate": 0.08333333333333333,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 1
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.0,
+          "n": 1
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.0,
+          "n": 2
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 1.0,
+          "n": 1
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 1.0,
+          "n": 1
+        }
+      ],
+      "longitudinal": [
+        {
+          "window": 1,
+          "cumulative": 4,
+          "mean_drift": 0.0066,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 2,
+          "cumulative": 8,
+          "mean_drift": 0.0595,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 3,
+          "cumulative": 12,
+          "mean_drift": 0.1729,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 4,
+          "cumulative": 16,
+          "mean_drift": 0.3469,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 5,
+          "cumulative": 20,
+          "mean_drift": 0.5813,
+          "escalated": 0,
+          "total": 4,
+          "ratio": 0.0
+        },
+        {
+          "window": 6,
+          "cumulative": 24,
+          "mean_drift": 0.8761,
+          "escalated": 2,
+          "total": 4,
+          "ratio": 0.5
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 2,
+        "human_approved": 2,
+        "human_rejected": 0,
+        "false_stop_rate": 1.0,
+        "pore_precision": 0.0,
+        "by_regime": {
+          "regime_break": {
+            "n": 2,
+            "approve_rate": 1.0
+          }
+        }
+      }
+    }
+  }
+}
