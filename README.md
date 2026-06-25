@@ -161,14 +161,32 @@ Verify it resolved:
 This makes the operator slash commands available:
 `/dispatch /runs /escalations /adjudicate /curve /boundary`.
 
-### 4. Wire up the backend
+### 4. Connect the control-plane MCP server
 
-The plugin's MCP server (`cleanroom.control.server.mcp`) needs the repo on `PYTHONPATH`
-and, for shared state across sessions, an Aiven Postgres DSN. Without a DSN it falls back
-to in-memory storage (state is lost on MCP restart).
+The slash commands talk to an MCP server. **The recommended path is the hosted control
+plane** — an AgentCore Runtime reached over HTTP with OAuth (authorization-code + PKCE).
+Add it with the public Cognito client; no secret, no `claude mcp login`:
 
 ```bash
-export PYTHONPATH=.                                                  # repo root
+claude mcp add --transport http --callback-port 8080 sunstead-control \
+  "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT"
+```
+
+On first use Claude opens a browser sign-in; tokens are stored in your keychain and
+auto-refreshed. You land as a **read-only viewer** until an operator adds your Cognito
+user to a group. The plugin already ships this config in
+[`plugin/.mcp.remote.json`](plugin/.mcp.remote.json) with the public client
+`1phgpdfcrftedtj69hhni18bue` defaulted in — so `--client-id` is optional. To point at
+your own runtime + Cognito pool, set `SUNSTEAD_CONTROL_URL` and
+`SUNSTEAD_CONTROL_CLIENT_ID`.
+
+**Local stdio alternative (development).** [`plugin/.mcp.json`](plugin/.mcp.json) runs
+`cleanroom.control.server.mcp` as a subprocess. It needs the repo on `PYTHONPATH`
+(resolved via `${CLAUDE_PLUGIN_ROOT}` — do not hardcode an absolute interpreter path) and,
+for shared state across sessions, an Aiven Postgres DSN. Without a DSN it falls back to
+in-memory storage (state is lost on MCP restart):
+
+```bash
 export CLEANROOM_PG_DSN="postgresql://user:pass@host:5432/db?sslmode=require"
 ```
 
