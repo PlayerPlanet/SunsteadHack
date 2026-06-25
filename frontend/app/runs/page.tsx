@@ -21,7 +21,7 @@ const STATE_STYLE: Record<string, string> = {
 };
 
 function RegisterForm({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [workloads, setWorkloads] = useState<string[]>([]);
+  const [workloads, setWorkloads] = useState<{ id: string; label: string }[]>([]);
   const [form, setForm] = useState({
     task_id: "",
     objective: "",
@@ -107,7 +107,7 @@ function RegisterForm({ onClose, onCreated }: { onClose: () => void; onCreated: 
             onChange={(ev) => setForm((f) => ({ ...f, workload_id: ev.target.value }))}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent"
           >
-            {workloads.map((w) => <option key={w} value={w}>{w}</option>)}
+            {workloads.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
           </select>
         </div>
 

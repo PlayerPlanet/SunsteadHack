@@ -12,7 +12,18 @@ const MOCK_TASKS = [
   },
 ];
 
-const KNOWN_WORKLOADS = ["job-prodyear", "__default__"];
+// Workloads the backend can actually resolve. The domain-judged ones come from
+// cleanroom.control.domains._BUILDERS; job-prodyear is the Postgres/JOB index task;
+// __default__ is the canned benchmark. Keep ids in sync with that registry.
+const KNOWN_WORKLOADS = [
+  { id: "job-prodyear", label: "Postgres · JOB production-year join" },
+  { id: "kernel_matmul_32", label: "Kernel · 32×32 matmul latency" },
+  { id: "quant_walkforward_momentum", label: "Quant · walk-forward momentum Sharpe" },
+  { id: "bio_molclass_f1", label: "Bio · molecular-property F1" },
+  { id: "byo_agent_demo", label: "BYO-agent · demo loop" },
+  { id: "bond_extraction", label: "Bond extraction · field F1" },
+  { id: "__default__", label: "Default · canned benchmark" },
+];
 
 export async function GET() {
   if (!hasControlPlane()) return NextResponse.json({ tasks: MOCK_TASKS, workloads: KNOWN_WORKLOADS });
