@@ -56,6 +56,14 @@ class SwappableRunStore(Protocol):
         """
         ...
 
+    def claim_next(self) -> RunStatus | None:
+        """Atomically claim the oldest 'queued' run, transition it to 'running'.
+
+        Returns the claimed RunStatus, or None if nothing is queued. Used by the
+        worker process in the web/worker split so two workers never run the same job.
+        """
+        ...
+
 
 class InMemoryRunStore:
     """In-memory thread-safe run store.
@@ -140,8 +148,34 @@ class InMemoryRunStore:
                 "started_at": status.started_at,
                 "ended_at": status.ended_at,
                 "error_msg": status.error_msg,
+                "iterations_target": status.iterations_target,
             }
             data.update(fields)
             updated = RunStatus(**data)
             self._runs[run_id] = updated
             return updated
+
+    def claim_next(self) -> RunStatus | None:
+        """Atomically claim the oldest queued run and mark it 'running'.
+
+        The lock makes claim-and-transition atomic, so concurrent workers never
+        claim the same run. Insertion order (dict order) is the queue order.
+        """
+        with self._lock:
+            for run_id, status in self._runs.items():
+                if status.state == "queued":
+                    claimed = RunStatus(
+                        run_id=status.run_id,
+                        task_id=status.task_id,
+                        model=status.model,
+                        state="running",
+                        iterations_done=status.iterations_done,
+                        best_p99=status.best_p99,
+                        started_at=status.started_at,
+                        ended_at=status.ended_at,
+                        error_msg=status.error_msg,
+                        iterations_target=status.iterations_target,
+                    )
+                    self._runs[run_id] = claimed
+                    return claimed
+            return None

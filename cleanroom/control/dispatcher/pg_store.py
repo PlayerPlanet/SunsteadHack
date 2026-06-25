@@ -73,7 +73,7 @@ class PgRunStore:
         """
         sql = (
             "SELECT run_id, task_id, model, state, iterations_done, best_p99, "
-            "       started_at, ended_at, error_msg "
+            "       started_at, ended_at, error_msg, iterations_target "
             "FROM run WHERE run_id = %s"
         )
         with self._lock:
@@ -94,6 +94,7 @@ class PgRunStore:
             started_at=row[6],
             ended_at=row[7],
             error_msg=row[8],
+            iterations_target=row[9],
         )
 
     def set(self, run_id: str, status: RunStatus) -> None:
@@ -109,8 +110,8 @@ class PgRunStore:
         sql = (
             "INSERT INTO run "
             "(run_id, task_id, model, state, iterations_done, best_p99, "
-            " started_at, ended_at, error_msg) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            " started_at, ended_at, error_msg, iterations_target) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (run_id) DO UPDATE SET "
             "  task_id = EXCLUDED.task_id, "
             "  model = EXCLUDED.model, "
@@ -119,7 +120,8 @@ class PgRunStore:
             "  best_p99 = EXCLUDED.best_p99, "
             "  started_at = EXCLUDED.started_at, "
             "  ended_at = EXCLUDED.ended_at, "
-            "  error_msg = EXCLUDED.error_msg"
+            "  error_msg = EXCLUDED.error_msg, "
+            "  iterations_target = EXCLUDED.iterations_target"
         )
         with self._lock:
             with self._conn.cursor() as cur:
@@ -135,6 +137,7 @@ class PgRunStore:
                         status.started_at,
                         status.ended_at,
                         status.error_msg,
+                        status.iterations_target,
                     ),
                 )
             self._conn.commit()
@@ -160,6 +163,7 @@ class PgRunStore:
             "started_at",
             "ended_at",
             "error_msg",
+            "iterations_target",
         }
         if filter:
             unknown = set(filter) - valid_fields
@@ -171,7 +175,7 @@ class PgRunStore:
 
         sql = (
             "SELECT run_id, task_id, model, state, iterations_done, best_p99, "
-            "       started_at, ended_at, error_msg "
+            "       started_at, ended_at, error_msg, iterations_target "
             "FROM run"
         )
         params: list = []
@@ -197,6 +201,7 @@ class PgRunStore:
                 started_at=row[6],
                 ended_at=row[7],
                 error_msg=row[8],
+                iterations_target=row[9],
             )
             for row in rows
         ]
@@ -225,6 +230,7 @@ class PgRunStore:
             "started_at",
             "ended_at",
             "error_msg",
+            "iterations_target",
         }
         unknown = set(fields) - valid_fields
         if unknown:
@@ -239,7 +245,7 @@ class PgRunStore:
 
         # Build the dynamic UPDATE clause
         clauses = [f"{col} = %s" for col in fields]
-        sql = f"UPDATE run SET {', '.join(clauses)} WHERE run_id = %s RETURNING run_id, task_id, model, state, iterations_done, best_p99, started_at, ended_at, error_msg"
+        sql = f"UPDATE run SET {', '.join(clauses)} WHERE run_id = %s RETURNING run_id, task_id, model, state, iterations_done, best_p99, started_at, ended_at, error_msg, iterations_target"
         params = list(fields.values()) + [run_id]
 
         with self._lock:
@@ -261,6 +267,47 @@ class PgRunStore:
             started_at=row[6],
             ended_at=row[7],
             error_msg=row[8],
+            iterations_target=row[9],
+        )
+
+    def claim_next(self) -> RunStatus | None:
+        """Atomically claim the oldest queued run across processes and mark it running.
+
+        Uses `FOR UPDATE SKIP LOCKED` so multiple worker processes can poll the same
+        `run` table concurrently and never claim the same row — the row-level lock is
+        held for the brief UPDATE and released at commit. This is the cross-process
+        backbone of the web/worker split (the in-memory store uses a thread lock for
+        the single-process equivalent).
+        """
+        sql = (
+            "UPDATE run SET state = 'running' "
+            "WHERE run_id = ("
+            "  SELECT run_id FROM run WHERE state = 'queued' "
+            "  ORDER BY run_id FOR UPDATE SKIP LOCKED LIMIT 1"
+            ") "
+            "RETURNING run_id, task_id, model, state, iterations_done, best_p99, "
+            "          started_at, ended_at, error_msg, iterations_target"
+        )
+        with self._lock:
+            with self._conn.cursor() as cur:
+                cur.execute(sql)
+                row = cur.fetchone()
+            self._conn.commit()
+
+        if row is None:
+            return None
+
+        return RunStatus(
+            run_id=row[0],
+            task_id=row[1],
+            model=row[2],
+            state=row[3],
+            iterations_done=row[4],
+            best_p99=row[5],
+            started_at=row[6],
+            ended_at=row[7],
+            error_msg=row[8],
+            iterations_target=row[9],
         )
 
     def close(self) -> None:

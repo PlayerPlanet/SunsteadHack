@@ -21,12 +21,15 @@ never see its own prior writes. Call `reset_caches()` in tests to clear them.
 psycopg is imported lazily so importing this module never requires it.
 """
 
+import logging
 import os
 from typing import Any
 
 from cleanroom.control.ops import Operator, OperatorContext
 from cleanroom.control.registry.store import TaskRegistryStore
 from cleanroom.fixtures import CannedBenchmark, DummyProposer, InMemoryLogClient
+
+logger = logging.getLogger(__name__)
 
 # Process-level singletons (see module docstring). Keyed implicitly by process; a
 # fresh process (e.g. each CLI invocation) starts with these as None.
@@ -41,9 +44,31 @@ def reset_caches() -> None:
     _logclient = None
 
 
+def data_dsn() -> str | None:
+    """DSN the data path (run store + logclient) uses.
+
+    Prefers CLEANROOM_PG_APP_DSN (the non-superuser app login used in a remote
+    deployment) and falls back to CLEANROOM_PG_DSN (the local/stdio convention). When
+    neither is set, the in-memory backend is used.
+    """
+    return os.environ.get("CLEANROOM_PG_APP_DSN") or os.environ.get("CLEANROOM_PG_DSN")
+
+
+def _external_migrations() -> bool:
+    """True when schema creation is owned by an out-of-band admin migration.
+
+    In a deployment the serving login is a non-superuser that lacks CREATE, and the
+    schema/roles are applied separately (sql/, the migrate step). Don't try to
+    init_schema from the serving process then. Triggered by serving via the app DSN
+    or an explicit CLEANROOM_SKIP_SCHEMA_INIT flag.
+    """
+    return bool(os.environ.get("CLEANROOM_PG_APP_DSN")
+                or os.environ.get("CLEANROOM_SKIP_SCHEMA_INIT"))
+
+
 def _make_run_store():
-    """Build the run store for the current CLEANROOM_PG_DSN (no caching)."""
-    dsn = os.environ.get("CLEANROOM_PG_DSN")
+    """Build the run store for the current data DSN (no caching)."""
+    dsn = data_dsn()
     if dsn:
         from cleanroom.control.dispatcher.pg_store import PgRunStore
 
@@ -63,17 +88,19 @@ def make_logclient():
     if _logclient is not None:
         return _logclient
 
-    dsn = os.environ.get("CLEANROOM_PG_DSN")
+    dsn = data_dsn()
     if dsn:
         from cleanroom.db import connect, init_schema
         from cleanroom.logclient import PgLogClient
 
-        # Ensure the log tables exist, then hand the client its own connection.
-        conn = connect(dsn)
-        try:
-            init_schema(conn)
-        finally:
-            conn.close()
+        # Ensure the log tables exist — unless an admin owns migrations out-of-band
+        # (deployment: the serving login is a non-superuser without CREATE).
+        if not _external_migrations():
+            conn = connect(dsn)
+            try:
+                init_schema(conn)
+            finally:
+                conn.close()
         _logclient = PgLogClient.from_dsn(dsn)
     else:
         _logclient = InMemoryLogClient()
@@ -118,3 +145,46 @@ def governance_pore() -> Any:
     import cleanroom.pore
 
     return cleanroom.pore
+
+
+# ==================== Deployment-grade serving (Story G) ======================
+#
+# Two DSNs with different privilege levels:
+#   * CLEANROOM_PG_DSN      — the admin/superuser login. Used ONLY for migrations
+#     and schema init (init_schema), never to serve requests.
+#   * CLEANROOM_PG_APP_DSN  — the non-superuser `sunstead_app` login the remote
+#     server authenticates as; it SET ROLEs per request (see roles.py / sql/roles.sql).
+#
+# The stdio/local mode (a single trusted operator on their own machine) keeps using
+# the admin DSN — there is no untrusted caller to wall off. The remote HTTP mode
+# MUST use the app DSN and is guarded below.
+
+
+def serving_dsn() -> str | None:
+    """DSN the request-serving path uses (same as the data path)."""
+    if not os.environ.get("CLEANROOM_PG_APP_DSN") and os.environ.get("CLEANROOM_PG_DSN"):
+        logger.warning(
+            "CLEANROOM_PG_APP_DSN unset — serving via CLEANROOM_PG_DSN. In production "
+            "this should be the non-superuser sunstead_app login (see sql/roles.sql)."
+        )
+    return data_dsn()
+
+
+def assert_serving_safe() -> None:
+    """Boot guard for the remote server: refuse to serve as a Postgres superuser.
+
+    No-op when there is no serving DSN (pure in-memory dev mode — nothing to wall off).
+    Called from the HTTP entrypoint before binding the port, so an over-privileged
+    deployment fails fast and loud rather than silently defeating the truth boundary.
+    """
+    dsn = serving_dsn()
+    if not dsn:
+        return
+    from cleanroom.control.server.roles import assert_not_superuser
+    from cleanroom.db import connect
+
+    conn = connect(dsn)
+    try:
+        assert_not_superuser(conn)
+    finally:
+        conn.close()

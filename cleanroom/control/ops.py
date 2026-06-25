@@ -166,9 +166,19 @@ class Operator:
         return spec.task_id
 
     def dispatch_run(
-        self, task_id: str, *, model: str, iterations: int, ctx: OperatorContext
+        self, task_id: str, *, model: str, iterations: int, ctx: OperatorContext,
+        mode: str = "thread",
     ) -> str:
-        """Dispatch a run (fire-and-return, background thread).
+        """Dispatch a run (fire-and-return).
+
+        Two execution modes:
+          * "thread" (default) — run in a background daemon thread in THIS process.
+            Right for the local stdio plugin: one trusted operator, one process.
+          * "queue" — leave the run in state 'queued' and return immediately; a
+            separate worker process (cleanroom.control.worker) claims and runs it.
+            This is the deployment-grade split: a stateless, load-balanced web tier
+            never executes long runs in a request thread.
+
 
         Flow:
           1. Generate run_id = uuid.uuid4().hex[:12]
@@ -208,6 +218,7 @@ class Operator:
             started_at=None,
             ended_at=None,
             error_msg=None,
+            iterations_target=iterations,
         )
         self.run_store.set(run_id, initial_status)
 
@@ -240,7 +251,12 @@ class Operator:
             "default_model": task_spec.default_model,
         }
 
-        # Launch background thread (fire-and-return)
+        # Queue mode: leave the run 'queued' for a separate worker to claim. The web
+        # tier returns instantly and never runs the loop itself.
+        if mode == "queue":
+            return run_id
+
+        # Thread mode: run it now in a background daemon thread (fire-and-return).
         dispatch_background_run(
             task_spec_dict,
             run_id,

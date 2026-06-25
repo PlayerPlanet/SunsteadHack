@@ -13,6 +13,7 @@ independently of the mcp runtime. The `build_server()` function wires them to Fa
 import dataclasses
 import datetime
 import json
+import os
 from typing import Any
 
 from cleanroom.control.registry.types import TaskSpec
@@ -43,12 +44,29 @@ def _json_safe(obj):
 # ==================== Tool Logic Functions (Unit-Testable) ====================
 
 
+def _enforce(tool_name: str) -> None:
+    """Enforce per-tool OAuth scope when an authenticated principal is in context.
+
+    The HTTP transport (cleanroom.control.server.http_app) sets current_principal
+    after validating the bearer token; here we check that principal holds the scope
+    this tool requires. In stdio/local mode no principal is set, so this is a no-op —
+    which keeps the local plugin subprocess and the direct unit tests unchanged.
+    """
+    from cleanroom.control.server.auth import authorize_tool
+    from cleanroom.control.server.context import current_principal
+
+    principal = current_principal.get()
+    if principal is not None:
+        authorize_tool(principal, tool_name)
+
+
 def tool_list_tasks() -> list[dict]:
     """List all active tasks.
 
     Returns:
         List of task dicts.
     """
+    _enforce("list_tasks")
     operator = make_operator()
     tasks = operator.list_tasks()
     return [dataclasses.asdict(t) for t in tasks]
@@ -63,6 +81,7 @@ def tool_get_task(task_id: str) -> dict | None:
     Returns:
         Task dict or None.
     """
+    _enforce("get_task")
     operator = make_operator()
     task = operator.get_task(task_id)
     return dataclasses.asdict(task) if task else None
@@ -80,6 +99,7 @@ def tool_register_task(spec_json: str) -> str:
     Raises:
         ValueError: If spec_json is invalid.
     """
+    _enforce("register_task")
     try:
         spec_dict = json.loads(spec_json)
         spec = TaskSpec(**spec_dict)
@@ -103,11 +123,16 @@ def tool_dispatch_run(task_id: str, model: str, iterations: int = 10) -> str:
     Returns:
         run_id (string).
     """
+    _enforce("dispatch_run")
     operator = make_operator()
     logclient = make_logclient()
     ctx = make_dispatch_ctx(logclient)
+    # In a remote deployment set CLEANROOM_DISPATCH_MODE=queue so this (stateless,
+    # load-balanced) web tier enqueues the run for a worker instead of running it in
+    # a request thread. Local stdio defaults to "thread" (single trusted process).
+    mode = os.environ.get("CLEANROOM_DISPATCH_MODE", "thread")
     run_id = operator.dispatch_run(
-        task_id, model=model, iterations=iterations, ctx=ctx
+        task_id, model=model, iterations=iterations, ctx=ctx, mode=mode
     )
     return run_id
 
@@ -121,6 +146,7 @@ def tool_get_run(run_id: str) -> dict | None:
     Returns:
         RunStatus dict or None.
     """
+    _enforce("get_run")
     operator = make_operator()
     status = operator.get_run(run_id)
     return _json_safe(dataclasses.asdict(status)) if status else None
@@ -138,6 +164,7 @@ def tool_list_runs(filter_json: str | None = None) -> list[dict]:
     Raises:
         ValueError: If filter_json is invalid.
     """
+    _enforce("list_runs")
     operator = make_operator()
     filter_dict = None
     if filter_json:
@@ -155,6 +182,7 @@ def tool_cancel_run(run_id: str) -> None:
     Args:
         run_id: Run identifier.
     """
+    _enforce("cancel_run")
     operator = make_operator()
     operator.cancel_run(run_id)
 
@@ -165,6 +193,7 @@ def tool_pending_escalations() -> list[dict]:
     Returns:
         List of crossing dicts.
     """
+    _enforce("pending_escalations")
     operator = make_operator()
     logclient = make_logclient()
     return _json_safe(operator.pending_escalations(logclient))
@@ -184,6 +213,7 @@ def tool_adjudicate(
         rationale: Optional explanation.
         judge: Judge identifier (default 'human').
     """
+    _enforce("adjudicate")
     operator = make_operator()
     logclient = make_logclient()
     operator.adjudicate(
@@ -204,6 +234,7 @@ def tool_read_curve(task_id: str) -> list[dict]:
     Returns:
         List of experiment dicts.
     """
+    _enforce("read_curve")
     operator = make_operator()
     logclient = make_logclient()
     return _json_safe(operator.read_curve(task_id, logclient=logclient))
@@ -215,6 +246,7 @@ def tool_read_boundary() -> dict:
     Returns:
         {"spatial": [...], "longitudinal": [...], "proxy_caveat": str}.
     """
+    _enforce("read_boundary")
     operator = make_operator()
     logclient = make_logclient()
     return _json_safe(operator.read_boundary(logclient=logclient))

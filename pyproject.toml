@@ -24,6 +24,18 @@ control = [
     # cleanroom/control/server/mcp.py so the package installs/imports without it.
     "mcp>=1.0",
 ]
+server = [
+    # Deployment-grade remote serving (Story G): streamable-HTTP transport + OAuth 2.1
+    # resource server. All imported lazily by cleanroom/control/server/http_app.py.
+    "mcp>=1.0",
+    "uvicorn>=0.30",
+    "starlette>=0.40",
+    "pyjwt[crypto]>=2.8",   # RS256 access-token validation against the IdP's JWKS
+    "httpx>=0.27",          # JWKS fetch (via pyjwt's PyJWKClient)
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cleanroom"]
 
 [tool.pytest.ini_options]
 markers = [
