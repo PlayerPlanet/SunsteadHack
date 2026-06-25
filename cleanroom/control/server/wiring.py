@@ -1,24 +1,122 @@
 """Backend factory — centralized persistent-vs-inmemory selection for Story D Phase 1.
 
 This module is the single point where both the CLI and MCP adapters select storage
-backends based on environment variables. It enables persistent state across
-separate processes (e.g., Claude Code slash commands) via Aiven Postgres.
+backends based on the `CLEANROOM_PG_DSN` environment variable:
 
-Lazy import of psycopg to avoid requiring it at module import time.
+  * DSN set  -> Aiven Postgres: PgRunStore + PgLogClient. State persists across
+    separate processes (so a Claude plugin's slash commands, each its own process,
+    share one governance log + run store). This is what makes Aiven load-bearing
+    for the control plane.
+  * DSN unset -> in-memory fixtures. State lives only within a single process. The
+    long-lived MCP server still works across tool calls (the stores are cached
+    process-singletons below), but separate CLI invocations will NOT see each
+    other's state — that's the whole reason the Aiven backend exists.
+
+The stores are cached as process-level singletons so that, within one process,
+every operator call shares the SAME run store / logclient / Operator (and thus the
+same cancel-event registry). Without this, each tool call would get a fresh empty
+in-memory store and a multi-step flow (register -> pending -> adjudicate) could
+never see its own prior writes. Call `reset_caches()` in tests to clear them.
+
+psycopg is imported lazily so importing this module never requires it.
 """
 
+import logging
 import os
 from typing import Any
 
-from cleanroom.control.ops import Operator
-from cleanroom.control.ops import OperatorContext
+from cleanroom.control.ops import Operator, OperatorContext
 from cleanroom.control.registry.store import TaskRegistryStore
-from cleanroom.fixtures import (
-    CannedBenchmark,
-    DummyProposer,
-    InMemoryLogClient,
-    NoOpPore,
-)
+from cleanroom.fixtures import CannedBenchmark, DummyProposer, InMemoryLogClient
+
+logger = logging.getLogger(__name__)
+
+# Process-level singletons (see module docstring). Keyed implicitly by process; a
+# fresh process (e.g. each CLI invocation) starts with these as None.
+_operator: Operator | None = None
+_logclient: Any = None
+
+
+def reset_caches() -> None:
+    """Clear the cached singletons. For tests that flip CLEANROOM_PG_DSN."""
+    global _operator, _logclient
+    _operator = None
+    _logclient = None
+
+
+def data_dsn() -> str | None:
+    """DSN the data path (run store + logclient) uses.
+
+    Prefers CLEANROOM_PG_APP_DSN (the non-superuser app login used in a remote
+    deployment) and falls back to CLEANROOM_PG_DSN (the local/stdio convention). When
+    neither is set, the in-memory backend is used.
+    """
+    return os.environ.get("CLEANROOM_PG_APP_DSN") or os.environ.get("CLEANROOM_PG_DSN")
+
+
+def _external_migrations() -> bool:
+    """True when schema creation is owned by an out-of-band admin migration.
+
+    In a deployment the serving login is a non-superuser that lacks CREATE, and the
+    schema/roles are applied separately (sql/, the migrate step). Don't try to
+    init_schema from the serving process then. Triggered by serving via the app DSN
+    or an explicit CLEANROOM_SKIP_SCHEMA_INIT flag.
+    """
+    return bool(os.environ.get("CLEANROOM_PG_APP_DSN")
+                or os.environ.get("CLEANROOM_SKIP_SCHEMA_INIT"))
+
+
+def _make_run_store():
+    """Build the run store for the current data DSN (no caching)."""
+    dsn = data_dsn()
+    if dsn:
+        from cleanroom.control.dispatcher.pg_store import PgRunStore
+
+        return PgRunStore.from_dsn(dsn)
+    from cleanroom.control.dispatcher.store_interface import InMemoryRunStore
+
+    return InMemoryRunStore()
+
+
+def make_logclient():
+    """Return the (cached) logclient: PgLogClient if DSN set, else InMemoryLogClient.
+
+    For the Postgres backend, the frozen experiment/crossing/judgment schema is
+    ensured once via init_schema before the client is created.
+    """
+    global _logclient
+    if _logclient is not None:
+        return _logclient
+
+    dsn = data_dsn()
+    if dsn:
+        from cleanroom.db import connect, init_schema
+        from cleanroom.logclient import PgLogClient
+
+        # Ensure the log tables exist — unless an admin owns migrations out-of-band
+        # (deployment: the serving login is a non-superuser without CREATE).
+        if not _external_migrations():
+            conn = connect(dsn)
+            try:
+                init_schema(conn)
+            finally:
+                conn.close()
+        _logclient = PgLogClient.from_dsn(dsn)
+    else:
+        _logclient = InMemoryLogClient()
+    return _logclient
+
+
+def make_operator() -> Operator:
+    """Return the (cached) Operator wired to the selected run store.
+
+    The TaskRegistryStore is JSON-file-backed and already cross-process persistent;
+    the run store follows the CLEANROOM_PG_DSN selection above.
+    """
+    global _operator
+    if _operator is None:
+        _operator = Operator(TaskRegistryStore(), _make_run_store())
+    return _operator
 
 
 class RealBenchmark:
@@ -28,7 +126,7 @@ class RealBenchmark:
     is_within_noise) from cleanroom.benchmark to match the CannedBenchmark
     interface so the loop can use either fixture or real benchmarks transparently.
 
-    This is used only when CLEANROOM_PG_DSN is set (Phase-2 real backend).
+    Used only when a real Postgres backend is configured (data_dsn() set).
     """
 
     def run_benchmark(
@@ -87,93 +185,24 @@ class RealBenchmark:
         return real_is_within_noise(baseline_samples, candidate_samples)
 
 
-def make_run_store():
-    """Select persistent or in-memory run store based on CLEANROOM_PG_DSN env var.
-
-    Returns:
-        SwappableRunStore: PgRunStore if DSN is set, InMemoryRunStore otherwise.
-    """
-    dsn = os.environ.get("CLEANROOM_PG_DSN")
-    if dsn:
-        # Lazy import to avoid requiring psycopg at module import time
-        from cleanroom.control.dispatcher.pg_store import PgRunStore
-
-        return PgRunStore.from_dsn(dsn)
-    else:
-        from cleanroom.control.dispatcher.store_interface import InMemoryRunStore
-
-        return InMemoryRunStore()
-
-
-def make_logclient():
-    """Select persistent or in-memory logclient based on CLEANROOM_PG_DSN env var.
-
-    If using Postgres backend, ensures schema tables exist (init_schema).
-
-    Returns:
-        LogClient: PgLogClient if DSN is set, InMemoryLogClient otherwise.
-    """
-    dsn = os.environ.get("CLEANROOM_PG_DSN")
-    if dsn:
-        # Lazy imports
-        from cleanroom.control.dispatcher.pg_store import PgRunStore
-        from cleanroom.db import connect, init_schema
-        from cleanroom.logclient import PgLogClient
-
-        # Open connection, init schema, create logclient
-        # Note: we open a dedicated connection here; PgLogClient.from_dsn opens its own.
-        # For init_schema, we just need a fresh connection to ensure tables exist.
-        conn = connect(dsn)
-        init_schema(conn)
-        conn.close()
-
-        # Now create the logclient with its own connection
-        return PgLogClient.from_dsn(dsn)
-    else:
-        return InMemoryLogClient()
-
-
-def make_operator() -> Operator:
-    """Create an Operator with persistent or in-memory backends.
-
-    Returns:
-        Operator: Configured with TaskRegistryStore and selected run store.
-    """
-    registry = TaskRegistryStore()
-    run_store = make_run_store()
-    return Operator(registry, run_store)
-
-
 def make_dispatch_ctx(logclient) -> OperatorContext:
-    """Create OperatorContext for dispatch_run with real or fixture proposer/benchmark.
+    """OperatorContext for dispatch_run.
 
-    Phase-2 swap: if CLEANROOM_PG_DSN is set, uses real proposer + benchmark.
-    Otherwise defaults to FIXTURE proposer (DummyProposer) + benchmark (CannedBenchmark).
-
-    Components:
-      - proposer: ClaudeCodeProposer if DSN set, DummyProposer otherwise
-      - benchmark: RealBenchmark if DSN set, CannedBenchmark otherwise
-      - pore: REAL frozen pore (cleanroom.pore) — never swaps
-      - logclient: Given (persistent or in-memory)
-
-    Args:
-        logclient: LogClient instance (PgLogClient or InMemoryLogClient).
-
-    Returns:
-        OperatorContext with the above components.
+    Phase 1 uses the FIXTURE proposer + benchmark (no live workload DB needed) but
+    the REAL frozen pore and the given (persistent or in-memory) logclient. Phase 2
+    swaps in A's ClaudeCodeProposer + B's real benchmark behind this same seam when a
+    real Postgres backend is configured (data_dsn() set).
     """
-    # Import the real pore module (frozen, do not modify)
     import cleanroom.pore
 
-    dsn = os.environ.get("CLEANROOM_PG_DSN")
-    if dsn:
-        # Phase-2: Real proposer and benchmark (require live Postgres)
+    if data_dsn():
+        # Phase-2: real proposer + benchmark (require a live Postgres workload DB).
         from cleanroom.loop.proposers import ClaudeCodeProposer
 
         proposer = ClaudeCodeProposer()
         benchmark = RealBenchmark()
     else:
-        # Phase-1: FIXTURE path (all existing tests use this)
+        # Phase-1: FIXTURE path (all existing tests use this).
         proposer = DummyProposer()
         benchmark = CannedBenchmark()
 
@@ -186,14 +215,54 @@ def make_dispatch_ctx(logclient) -> OperatorContext:
 
 
 def governance_pore() -> Any:
-    """Return the REAL frozen pore module for task registration governance.
+    """Return the REAL frozen pore module used to gate task registration.
 
-    Used by register_task to evaluate task_definition candidates against
-    the frozen risk rules. Never swaps; always the real pore.
-
-    Returns:
-        The cleanroom.pore module.
+    register_task evaluates a `task_definition` candidate against these frozen
+    rules — that is what makes 'defining' a task governed. Never swapped.
     """
     import cleanroom.pore
 
     return cleanroom.pore
+
+
+# ==================== Deployment-grade serving (Story G) ======================
+#
+# Two DSNs with different privilege levels:
+#   * CLEANROOM_PG_DSN      — the admin/superuser login. Used ONLY for migrations
+#     and schema init (init_schema), never to serve requests.
+#   * CLEANROOM_PG_APP_DSN  — the non-superuser `sunstead_app` login the remote
+#     server authenticates as; it SET ROLEs per request (see roles.py / sql/roles.sql).
+#
+# The stdio/local mode (a single trusted operator on their own machine) keeps using
+# the admin DSN — there is no untrusted caller to wall off. The remote HTTP mode
+# MUST use the app DSN and is guarded below.
+
+
+def serving_dsn() -> str | None:
+    """DSN the request-serving path uses (same as the data path)."""
+    if not os.environ.get("CLEANROOM_PG_APP_DSN") and os.environ.get("CLEANROOM_PG_DSN"):
+        logger.warning(
+            "CLEANROOM_PG_APP_DSN unset — serving via CLEANROOM_PG_DSN. In production "
+            "this should be the non-superuser sunstead_app login (see sql/roles.sql)."
+        )
+    return data_dsn()
+
+
+def assert_serving_safe() -> None:
+    """Boot guard for the remote server: refuse to serve as a Postgres superuser.
+
+    No-op when there is no serving DSN (pure in-memory dev mode — nothing to wall off).
+    Called from the HTTP entrypoint before binding the port, so an over-privileged
+    deployment fails fast and loud rather than silently defeating the truth boundary.
+    """
+    dsn = serving_dsn()
+    if not dsn:
+        return
+    from cleanroom.control.server.roles import assert_not_superuser
+    from cleanroom.db import connect
+
+    conn = connect(dsn)
+    try:
+        assert_not_superuser(conn)
+    finally:
+        conn.close()

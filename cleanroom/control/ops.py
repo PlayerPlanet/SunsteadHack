@@ -20,10 +20,40 @@ import uuid
 from cleanroom.control.dispatcher.executor import dispatch_background_run
 from cleanroom.control.dispatcher.state import RunStatus
 from cleanroom.control.dispatcher.store_interface import SwappableRunStore
+from cleanroom.control.domains import resolve_domain
 from cleanroom.control.pore_boundary.escalation import pending_escalations
 from cleanroom.control.registry.store import TaskRegistryStore
 from cleanroom.control.registry.types import TaskSpec
 from cleanroom.types import Candidate
+
+
+def bind_domain(task_spec, task_spec_dict: dict, ctx: "OperatorContext"):
+    """Bind an epic-#8 domain bundle to a run, if `task_spec` is a domain task.
+
+    For kernel/quant/bio tasks, swap in the domain's proposer/benchmark/pore/actions
+    and seed a fresh domain env into task_spec_dict["conn"], so the SAME loop drives a
+    different action space. ctx.logclient is preserved so experiments still land in the
+    real governance log. Non-domain (Postgres) tasks return the inputs unchanged.
+
+    Shared by both dispatch paths: dispatch_run (thread mode) and the queue worker
+    (cleanroom.control.worker), so a domain task behaves identically whichever runs it.
+
+    Returns:
+        (task_spec_dict, ctx) — possibly-rebound copies.
+    """
+    bundle = resolve_domain(task_spec)
+    if bundle is None:
+        return task_spec_dict, ctx
+    task_spec_dict = dict(task_spec_dict)
+    task_spec_dict["conn"] = bundle.make_env()
+    ctx = OperatorContext(
+        proposer=bundle.proposer,
+        benchmark=bundle.benchmark,
+        pore=bundle.pore,
+        logclient=ctx.logclient,
+        actions=bundle.actions,
+    )
+    return task_spec_dict, ctx
 
 
 class OperatorContext:
@@ -33,7 +63,7 @@ class OperatorContext:
     which uses it to invoke run_loop(..., proposer=ctx.proposer, ...).
     """
 
-    def __init__(self, *, proposer, benchmark, pore, logclient):
+    def __init__(self, *, proposer, benchmark, pore, logclient, actions=None):
         """Initialize context with required components.
 
         Args:
@@ -41,11 +71,16 @@ class OperatorContext:
             benchmark: Object with run_benchmark, check_correctness, is_within_noise methods.
             pore: Object with evaluate(candidate) -> PoreResult method.
             logclient: LogClient protocol for write_experiment, write_crossing, etc.
+            actions: Optional action adapter (apply/rollback) injected into run_loop.
+                None -> run_loop uses the builtin cleanroom.actions (Postgres
+                index/guc). Epic #8 domain tasks (kernel/quant/bio) carry their own
+                adapter here so the same loop drives a different action space.
         """
         self.proposer = proposer
         self.benchmark = benchmark
         self.pore = pore
         self.logclient = logclient
+        self.actions = actions
 
 
 class Operator:
@@ -147,9 +182,12 @@ class Operator:
             # Hold as pending_judgment
             self.registry.save(spec, state="pending_judgment")
 
-            # Write crossing for human review
+            # Write crossing for human review. A governance crossing has NO
+            # associated experiment, so experiment_id is NULL — not 0, which would
+            # violate the real crossing.experiment_id -> experiment(id) FK (the
+            # in-memory fixture doesn't enforce it; real Postgres does).
             logclient.write_crossing(
-                experiment_id=0,  # No experiment yet
+                experiment_id=None,
                 pore=pore_result.pore,
                 risk_level=pore_result.risk_level,
                 requires_human_judgment=True,
@@ -163,9 +201,19 @@ class Operator:
         return spec.task_id
 
     def dispatch_run(
-        self, task_id: str, *, model: str, iterations: int, ctx: OperatorContext
+        self, task_id: str, *, model: str, iterations: int, ctx: OperatorContext,
+        mode: str = "thread",
     ) -> str:
-        """Dispatch a run (fire-and-return, background thread).
+        """Dispatch a run (fire-and-return).
+
+        Two execution modes:
+          * "thread" (default) — run in a background daemon thread in THIS process.
+            Right for the local stdio plugin: one trusted operator, one process.
+          * "queue" — leave the run in state 'queued' and return immediately; a
+            separate worker process (cleanroom.control.worker) claims and runs it.
+            This is the deployment-grade split: a stateless, load-balanced web tier
+            never executes long runs in a request thread.
+
 
         Flow:
           1. Generate run_id = uuid.uuid4().hex[:12]
@@ -205,6 +253,7 @@ class Operator:
             started_at=None,
             ended_at=None,
             error_msg=None,
+            iterations_target=iterations,
         )
         self.run_store.set(run_id, initial_status)
 
@@ -236,6 +285,16 @@ class Operator:
             "constraints": task_spec.constraints,
             "default_model": task_spec.default_model,
         }
+
+        # Queue mode: leave the run 'queued' for a separate worker to claim. Domain
+        # binding + env creation happen in the worker (cleanroom.control.worker), not
+        # in this stateless web tier — so we return before touching resolve_domain.
+        if mode == "queue":
+            return run_id
+
+        # Thread mode: bind the epic-#8 domain bundle (kernel/quant/bio) if applicable,
+        # then run inline in a background daemon thread (fire-and-return).
+        task_spec_dict, ctx = bind_domain(task_spec, task_spec_dict, ctx)
 
         # Launch background thread (fire-and-return)
         dispatch_background_run(
@@ -347,20 +406,17 @@ class Operator:
         )
 
         # Check if this was a register_task escalation and decision is approve
-        # For Phase 0, we'll scan the in-memory logclient.crossings directly
-        # TODO(integration#4): Replace with logclient.read_crossings(filter={...})
-        if hasattr(logclient, "crossings"):
-            for crossing in logclient.crossings:
-                if crossing.get("id") == crossing_id:
-                    action = crossing.get("action", {})
-                    if "register_task" in action and decision in (
-                        "approve",
-                        "allow",
-                    ):
-                        task_id = action["register_task"].get("task_id")
-                        if task_id:
-                            self.registry.activate(task_id)
-                    break
+        crossings = logclient.read_crossings(filter={"id": crossing_id})
+        if crossings:
+            crossing = crossings[0]
+            action = crossing.get("action", {})
+            if "register_task" in action and decision in (
+                "approve",
+                "allow",
+            ):
+                task_id = action["register_task"].get("task_id")
+                if task_id:
+                    self.registry.activate(task_id)
 
     def read_curve(self, task_id: str, *, logclient) -> list[dict]:
         """Read performance curve (all experiments for a task).
@@ -373,3 +429,36 @@ class Operator:
             List of experiment dicts (as returned by logclient.read_experiments).
         """
         return logclient.read_experiments(filter={"task_id": task_id})
+
+    def read_boundary(self, *, logclient) -> dict:
+        """Read the boundary instrument — the manifesto's two live readings.
+
+        Delegates to Story C's frozen boundary queries (cleanroom.boundary), both
+        drawn off the escalation log:
+          - spatial: escalation rate vs workload drift (where the edge is now)
+          - longitudinal: escalations-per-unit-work vs cumulative volume (flat by
+            design with the frozen pore — that flatness is the artifact)
+
+        PROXY CAVEAT: the shippable pore gates blast-radius + reversibility, which
+        lower-bounds — but is not — the true epistemic edge. Label it as a proxy
+        wherever this is surfaced.
+
+        Args:
+            logclient: LogClient instance.
+
+        Returns:
+            {"spatial": [...], "longitudinal": [...], "proxy_caveat": str}.
+        """
+        from cleanroom.boundary import (
+            escalation_rate_by_drift,
+            escalations_per_unit_work,
+        )
+
+        return {
+            "spatial": escalation_rate_by_drift(logclient),
+            "longitudinal": escalations_per_unit_work(logclient),
+            "proxy_caveat": (
+                "Pore gates blast-radius + reversibility — a lower bound on, not "
+                "identical to, the agent's true epistemic edge."
+            ),
+        }

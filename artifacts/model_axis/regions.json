@@ -1,0 +1,491 @@
+{
+  "config": {
+    "human": "claude-sonnet-4-6",
+    "styles": [
+      "linear_ramp",
+      "accel_creep",
+      "oscillating"
+    ],
+    "iterations": 20
+  },
+  "models": [
+    {
+      "label": "haiku-4.5",
+      "model": "claude-haiku-4-5",
+      "backend": "anthropic",
+      "n": 60,
+      "escalation_rate": 0.11666666666666667,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 9
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.0,
+          "n": 7
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.8571428571428571,
+          "n": 7
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 0.5,
+          "n": 2
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 7,
+        "human_approved": 3,
+        "human_rejected": 4,
+        "false_stop_rate": 0.42857142857142855,
+        "pore_precision": 0.5714285714285714,
+        "by_regime": {
+          "regime_break": {
+            "n": 7,
+            "approve_rate": 0.42857142857142855
+          }
+        }
+      }
+    },
+    {
+      "label": "sonnet-4.6",
+      "model": "claude-sonnet-4-6",
+      "backend": "anthropic",
+      "n": 60,
+      "escalation_rate": 0.2833333333333333,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 9
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.6666666666666666,
+          "n": 3
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.5714285714285714,
+          "n": 7
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.6666666666666666,
+          "n": 3
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 1.0,
+          "n": 7
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 1.0,
+          "n": 2
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 17,
+        "human_approved": 12,
+        "human_rejected": 5,
+        "false_stop_rate": 0.7058823529411765,
+        "pore_precision": 0.29411764705882354,
+        "by_regime": {
+          "regime_break": {
+            "n": 9,
+            "approve_rate": 0.5555555555555556
+          },
+          "turbulent": {
+            "n": 8,
+            "approve_rate": 0.875
+          }
+        }
+      }
+    },
+    {
+      "label": "opus-4.5",
+      "model": "claude-opus-4-5",
+      "backend": "anthropic",
+      "n": 60,
+      "escalation_rate": 0.11666666666666667,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 9
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.14285714285714285,
+          "n": 7
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.7142857142857143,
+          "n": 7
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 0.5,
+          "n": 2
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 7,
+        "human_approved": 2,
+        "human_rejected": 5,
+        "false_stop_rate": 0.2857142857142857,
+        "pore_precision": 0.7142857142857143,
+        "by_regime": {
+          "regime_break": {
+            "n": 6,
+            "approve_rate": 0.16666666666666666
+          },
+          "turbulent": {
+            "n": 1,
+            "approve_rate": 1.0
+          }
+        }
+      }
+    },
+    {
+      "label": "opus-4.8",
+      "model": "claude-opus-4-8",
+      "backend": "anthropic",
+      "n": 60,
+      "escalation_rate": 0.15,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 9
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 8
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.2857142857142857,
+          "n": 7
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.6666666666666666,
+          "n": 3
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.7142857142857143,
+          "n": 7
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 0.0,
+          "n": 2
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 9,
+        "human_approved": 7,
+        "human_rejected": 2,
+        "false_stop_rate": 0.7777777777777778,
+        "pore_precision": 0.2222222222222222,
+        "by_regime": {
+          "regime_break": {
+            "n": 5,
+            "approve_rate": 1.0
+          },
+          "turbulent": {
+            "n": 4,
+            "approve_rate": 0.5
+          }
+        }
+      }
+    },
+    {
+      "label": "minimax-m2.5",
+      "model": "MiniMax-M2.5",
+      "backend": "minimax",
+      "n": 40,
+      "escalation_rate": 0.075,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 5
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.6666666666666666,
+          "n": 3
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 0.5,
+          "n": 2
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 3,
+        "human_approved": 1,
+        "human_rejected": 2,
+        "false_stop_rate": 0.3333333333333333,
+        "pore_precision": 0.6666666666666666,
+        "by_regime": {
+          "regime_break": {
+            "n": 3,
+            "approve_rate": 0.3333333333333333
+          }
+        }
+      }
+    },
+    {
+      "label": "minimax-m3",
+      "model": "MiniMax-M3",
+      "backend": "minimax",
+      "n": 40,
+      "escalation_rate": 0.125,
+      "spatial": [
+        {
+          "drift": 0.0,
+          "escalation_rate": 0.0,
+          "n": 6
+        },
+        {
+          "drift": 0.1,
+          "escalation_rate": 0.0,
+          "n": 5
+        },
+        {
+          "drift": 0.2,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.3,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.4,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.5,
+          "escalation_rate": 0.0,
+          "n": 4
+        },
+        {
+          "drift": 0.6,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.7,
+          "escalation_rate": 0.0,
+          "n": 3
+        },
+        {
+          "drift": 0.8,
+          "escalation_rate": 0.6666666666666666,
+          "n": 3
+        },
+        {
+          "drift": 0.9,
+          "escalation_rate": 0.6666666666666666,
+          "n": 3
+        },
+        {
+          "drift": 1.0,
+          "escalation_rate": 0.5,
+          "n": 2
+        }
+      ],
+      "calibration_gap": {
+        "n_escalated": 5,
+        "human_approved": 2,
+        "human_rejected": 3,
+        "false_stop_rate": 0.4,
+        "pore_precision": 0.6,
+        "by_regime": {
+          "regime_break": {
+            "n": 3,
+            "approve_rate": 0.3333333333333333
+          },
+          "turbulent": {
+            "n": 2,
+            "approve_rate": 0.5
+          }
+        }
+      }
+    }
+  ]
+}

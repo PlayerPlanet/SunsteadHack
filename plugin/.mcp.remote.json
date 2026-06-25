@@ -1,0 +1,9 @@
+{
+  "//": "Remote plugin config for the AgentCore-hosted control plane. Point `url` at your AgentCore Runtime invocation endpoint (URL-encode the runtime ARN). Claude's connector performs the OAuth handshake using the RFC 9728 protected-resource metadata that AgentCore serves at the /.well-known/oauth-protected-resource path of this endpoint. Replace REGION and the encoded ARN with the values from `agentcore status`.",
+  "mcpServers": {
+    "sunstead-control": {
+      "type": "http",
+      "url": "https://bedrock-agentcore.REGION.amazonaws.com/runtimes/ENCODED_RUNTIME_ARN/invocations?qualifier=DEFAULT"
+    }
+  }
+}

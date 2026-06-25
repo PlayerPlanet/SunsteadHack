@@ -1,0 +1,10 @@
+{
+  "task_id": "quant-walkforward",
+  "objective": "Maximize out-of-sample Sharpe (minimize -Sharpe) of a momentum strategy on walk-forward folds. The judge owns the held-out window and applies transaction costs; the proposer tunes on in-sample summary stats only and cannot peek ahead (negative lookback is rejected by check_correctness and the pore). Issue #10.",
+  "workload_id": "quant_walkforward_momentum",
+  "action_space": ["strategy"],
+  "db_ref": "bundled:ohlcv",
+  "constraints": {"max_leverage": 1.0},
+  "default_model": "claude-sonnet-4-6",
+  "state": "active"
+}

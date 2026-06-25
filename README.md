@@ -1,104 +1,121 @@
-# SunsteadHack — Self-Optimizing Data-Agent
+# Sunstead — Bring Your Own Agent Platform
 
-An autonomous research workflow with one defining move: **it knows when to stop.** It runs
-[Karpathy `autoresearch`](https://github.com/karpathy/autoresearch)'s "modify → run →
-measure → keep-or-discard → repeat" loop — but on a **live database** instead of a training
-script. The objective database metric (p99 latency / cost / throughput) plays the role of
-autoresearch's `val_bpb`: it's the judge, so there's no human in the loop per experiment. At
-the edge of what it can stand behind, it stops and escalates to a human — and that boundary
-is drawn live and measured.
+A secure runtime for autonomous agents. You bring the agent; we provide the governed
+environment it runs in, the gate that decides when it can act on its own, and the
+instrument that tells you — live and measured, not asserted — exactly how much human
+oversight it still needs.
 
-> **Read first:** the [manifesto](docs/manifesto.md) — the thesis, the bet, and what ships
-> vs. what we're betting on.
+> **The goal:** minimize human supervision over deployed agents. Not by trusting them
+> blindly, but by earning autonomy incrementally and measuring the boundary as it moves.
 
 Aiven project: `konsta-sunsteadhack` (cloud `google-europe-north1`).
 
 ---
 
-## Why this framing is legitimate
+## How it works
 
-`autoresearch` works because it has an objective, cheap, hard-to-game metric — so it needs
-zero human review between experiments. Most enterprise work *lacks* such a metric ("is this
-PR good?") and stays human-gated. **Database performance is one of the rare domains that
-already has a real objective metric**, so we can close the autonomous loop honestly, today,
-on the Aiven MCP surface. Where a change has blast-radius or isn't reversible, a frozen
-rule-based *pore* stops and asks a human — and the rate at which that happens, plotted
-against workload drift and cumulative volume, *is* the instrument.
+Customers deploy their agent into the platform runtime. The runtime wraps every action
+the agent proposes with three primitives:
 
-See [`docs/aiven_agentic_org.md`](docs/aiven_agentic_org.md) and the architecture diagram
-[`docs/aiven-architecture.png`](docs/aiven-architecture.png).
+**1. A frozen escalation gate (the pore)**
+A fixed, rule-based gate that intercepts each action before it executes. If the action
+is irreversible, high blast-radius, or outside the workload the agent has earned trust
+on — it stops and routes the decision back to the original deployer. Frozen on purpose:
+the gate is the measuring stick. A self-tuning gate can't tell "the world got harder"
+from "we lowered the bar."
 
-## The `cleanroom/` system
+**2. An objective judge**
+For every action the agent does execute autonomously, the platform runs a mechanical
+check: was it actually correct? No human opinion — a number you can recompute. This is
+what makes the whole thing honest. Where no objective judge exists (interpretation, not
+extraction), the platform says so and keeps the human in the loop rather than
+pretending otherwise.
 
-The build lives in the [`cleanroom/`](cleanroom/) package — a frozen-contract scaffold so
-three teammates can build in parallel. Real & frozen: the contract types
-([`cleanroom/types.py`](cleanroom/types.py)) and the escalation-log schema
-([`cleanroom/db/schema.sql`](cleanroom/db/schema.sql)). Runnable with zero infra: the
-[`fixtures/`](cleanroom/fixtures/) (canned benchmark, no-op pore, in-memory log client, dummy
-proposer). See [`cleanroom/README.md`](cleanroom/README.md) for the full layout and contracts.
+**3. A live boundary instrument**
+Bins the agent's tasks by how far they've drifted from familiar territory. For each
+bin: what fraction did the agent escalate, and of the ones it acted on autonomously,
+what fraction were confirmed correct? Plot those two readings against drift. The
+trustworthy region is where both are healthy. The boundary is where either collapses.
+It's entirely external and behavioral — the agent's internals never enter.
+
+The result: a live, empirical answer to "how much does this agent need a human?" that
+updates as the agent runs, rather than a one-time vendor assertion.
+
+---
+
+## The training trajectory
+
+Today's gate is a frozen proxy — it catches blast-radius and irreversibility, which
+correlates with but is not identical to the true epistemic edge. The boundary instrument
+generates a labeled dataset of every escalation: `(task, drift, proposal) → escalate? →
+deployer approved/rejected`.
+
+Stage 2 trains on that corpus to predict the deployer's verdict. Every false escalation
+the trained membrane learns to auto-clear is a human interruption saved — the
+longitudinal curve (human interventions per unit work) bends down. That bend is the
+platform's core value delivery: autonomy earned over time, measured, not claimed.
+
+The Stage 1 deep probe (144 labeled rows, Haiku proposing, Sonnet adjudicating) shows
+the calibration gap is **~93% learnable** — the residual 7% is genuinely irreducible
+judgment that will always route to a human. That irreducible fraction is not a bug; it
+is the true epistemic edge, and the platform's job is to find it precisely.
+
+---
+
+## What's proven today
+
+| Claim | Evidence |
+|---|---|
+| Agent acts autonomously on familiar tasks | p99 58 → 25 ms on live Aiven (DB domain); 107 → 57 ms (JOB benchmark) |
+| Gate escalates correctly at the edge | Frozen pore, verified cross-process across 4 sessions on shared Aiven log |
+| Boundary is measurable, not asserted | Spatial curve 0% → 100% escalation as drift rises; longitudinal curve flat at fixed drift |
+| Escalation routes to deployer | `/adjudicate` in the operator plugin; human judgment written back to log |
+| Multi-domain runtime | Kernel / quant / bio domains dispatchable alongside Postgres through same control plane |
+| Calibration gap is learnable | 93% LOO accuracy on 15 human judgments; residual = true irreducible edge |
+
+## What is still a bet
+
+The longitudinal curve is **flat by design** with today's frozen gate. Whether training
+on the accumulated judgment corpus actually bends it down — whether the platform
+genuinely reduces supervision over time across novel task types, not just repeats of
+proven ones — is Stage 2. Articulated, never claimed as a result here.
+
+---
+
+## Running it
 
 ```bash
 pip install -e .
+
+# Verify the runtime fixtures
 python -c "from cleanroom.fixtures import CannedBenchmark, NoOpPore, InMemoryLogClient, DummyProposer; print('ok')"
+
+# Run the boundary instrument (offline)
+python scripts/run_drift_sweep.py --mock
+
+# Run against live Aiven (needs DSN)
+CLEANROOM_PG_DSN='postgres://…?sslmode=require' python scripts/run_phase1_curve.py
+
+# Operator plugin (from a Claude session with the plugin loaded)
+/dispatch <task>   ·   /escalations → /adjudicate   ·   /curve <task>   ·   /boundary
 ```
 
-### Work split (async, contract-bound)
-
-| Story | Owner | Package | Issue |
-|---|---|---|---|
-| **A — Interior loop** (autoresearch engine) | Me | `loop/`, `actions/` | [#2](https://github.com/PlayerPlanet/SunsteadHack/issues/2) |
-| **B — Substrate** (benchmark, pore, log client) | Noel | `benchmark/`, `pore/`, `logclient/`, `db/` | [#3](https://github.com/PlayerPlanet/SunsteadHack/issues/3) |
-| **C — Boundary instrument** (curves, dashboard, model axis) | Mikael | `boundary/`, `dashboard/`, `modelaxis/` | [#4](https://github.com/PlayerPlanet/SunsteadHack/issues/4) |
-
-## Build status
-
-- ✅ **Phase-0 skeleton landed** (`cleanroom/` — frozen types + schema + runnable fixtures).
-  Stories A and C can import real symbols and build against fixtures today.
-- ✅ **Gate 1 (freezable workload) + Gate 2 (signal beats noise): PASS** — measured noise
-  floor ≈ CV 6.5 % on the live `sunstead-pg-bench` service. See
-  [`docs/gate-1-findings.md`](docs/gate-1-findings.md).
-- ⚠️ **`hypopg` is unavailable** on our Aiven plan → index discovery uses real
-  `CREATE INDEX` / `DROP INDEX` on a small dataset (reversible). Propagated to issue #2.
-- ⏳ **Still open:** MCP write-tool rate limits, live cost read, real-workload choice
-  (pgbench vs JOB).
-
-## Membrane governance probe (precursor / fallback)
-
-The repo also carries the original **membrane-crossing probe** — the governance pattern the
-clean-room pore generalizes (a frozen, rule-based gate that stops and asks a human on
-high-risk crossings). It's also the **fallback direction** if the objective-loop gates fail.
-It monitors clinical-claim and model/calibration surfaces, suggests regulated crossing pores,
-and logs human judgments to an append-only escalation log.
-
-```bash
-# Run the membrane probe
-python scripts/stage_membrane_unit.py --actor agent-builder-001 --output artifacts/staged-unit.json
-
-# Record a human judgment
-python scripts/record_judgment.py --input artifacts/staged-unit.json \
-  --decision modify --pore regulatory_clinical_safety --judge human-regulatory-001 \
-  --rationale "Clinical claim too strong for patient-facing copy." \
-  --transform "Rewrite to: estimates personalized migraine-related work-disruption risk."
-```
-
-| Cell | Risk | Pore |
-|---|---|---|
-| `clinical-claims-surface` | HIGH | `regulatory_clinical_safety` |
-| `migraine-risk-core` | MEDIUM | `model_transparency` |
-| `operator-playbooks` | LOW | `public_benign` |
-
-Probe runs always exit 0 (risk flags are recorded in JSON, not raised); the escalation log
-(`cells/agent-escalation-log/crossings.yaml`) is append-only; the probe and webhook receiver
-use only the Python standard library. See [`docs/membrane-trial.md`](docs/membrane-trial.md)
-and [`docs/homeserver-deployment.md`](docs/homeserver-deployment.md).
+---
 
 ## Repository map
 
 | Path | Purpose |
 |---|---|
-| [`cleanroom/`](cleanroom/) | The self-optimizing data-agent (front-runner build) |
-| [`docs/manifesto.md`](docs/manifesto.md) | The thesis: it knows when to stop |
-| [`docs/aiven_agentic_org.md`](docs/aiven_agentic_org.md) | Clean-room / located-autonomy strategy brief |
-| [`docs/solution-directions.md`](docs/solution-directions.md) | Team context: directions, gates, on-site questions |
-| [`docs/gate-1-findings.md`](docs/gate-1-findings.md) | Verified Aiven infra facts (freezability, extensions, GUCs) |
-| `cells/`, `scripts/`, `deploy/` | Membrane-crossing probe (governance precursor / fallback) |
+| [`cleanroom/loop/`](cleanroom/loop/) | Agent run loop — propose → judge → keep or discard |
+| [`cleanroom/pore/`](cleanroom/pore/) | Frozen escalation gate (the measuring stick) |
+| [`cleanroom/boundary/`](cleanroom/boundary/) | Boundary instrument — escalation rate + correctness vs. drift |
+| [`cleanroom/control/`](cleanroom/control/) | Operator control plane — MCP server, dispatcher, slash commands |
+| [`cleanroom/domains/`](cleanroom/domains/) | Domain adapters — kernel, quant, bio (plug-in judges + action spaces) |
+| [`cleanroom/probe/`](cleanroom/probe/) | Deep boundary probe — labels the calibration gap |
+| [`cleanroom/db/`](cleanroom/db/) | Append-only escalation log on Aiven Postgres |
+| [`plugin/`](plugin/) | Claude Code plugin — `/dispatch /runs /escalations /adjudicate /curve /boundary` |
+| [`scripts/`](scripts/) | Curve generation, drift sweep, deep probe, membrane fit |
+| [`docs/manifesto.md`](docs/manifesto.md) | The thesis: autonomy is only honest where you can judge it |
+| [`docs/manifesto-proof.md`](docs/manifesto-proof.md) | Every claim mapped to its evidence |
+| [`docs/deep-probe-report.md`](docs/deep-probe-report.md) | Calibration gap analysis — the learnable fraction |
+| [`docs/domain-onboarding.md`](docs/domain-onboarding.md) | How to onboard a new domain (classify + frozen loss) |

@@ -19,6 +19,24 @@ dev = [
 proposer = [
     "anthropic>=0.40",
 ]
+control = [
+    # Operator MCP server for the Claude Code plugin (Story D). Imported lazily by
+    # cleanroom/control/server/mcp.py so the package installs/imports without it.
+    "mcp>=1.0",
+]
+server = [
+    # Remote serving: streamable-HTTP MCP for AgentCore Runtime (runtime_app/runtime_mcp).
+    # OAuth validation deps (pyjwt) are still used by auth.py for local self-hosting and
+    # the claims decode in the AgentCore identity middleware.
+    "mcp>=1.0",
+    "uvicorn>=0.30",
+    "starlette>=0.40",
+    "pyjwt[crypto]>=2.8",   # RS256 access-token validation against the IdP's JWKS
+    "httpx>=0.27",          # JWKS fetch (via pyjwt's PyJWKClient)
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cleanroom"]
 
 [tool.pytest.ini_options]
 markers = [

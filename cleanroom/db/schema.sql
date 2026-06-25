@@ -22,3 +22,17 @@ create table judgment (
   decision text not null, rationale text,           -- approve|reject|escalate
   created_at timestamptz default now()
 );
+create table run (
+  run_id text primary key,
+  task_id text not null,
+  model text not null,
+  state text not null,
+  iterations_done integer not null default 0,
+  best_p99 double precision,
+  started_at timestamptz,
+  ended_at timestamptz,
+  error_msg text,
+  iterations_target integer not null default 0
+);
+-- A worker polls for queued runs; this partial index keeps the claim query cheap.
+create index if not exists run_queued_idx on run (run_id) where state = 'queued';

@@ -64,6 +64,10 @@ class LogClient(Protocol):
         """Read experiment records, optionally filtered by column=value."""
         ...
 
+    def read_crossings(self, filter: dict | None = None) -> list[dict]:
+        """Read crossing records, optionally filtered by column=value."""
+        ...
+
 
 # Column order for the experiment table, used to shape read_experiments() dicts.
 _EXPERIMENT_COLUMNS = (
@@ -78,6 +82,17 @@ _EXPERIMENT_COLUMNS = (
     "correctness_ok",
     "within_noise",
     "decision",
+    "created_at",
+)
+
+# Column order for the crossing table, used to shape read_crossings() dicts.
+_CROSSING_COLUMNS = (
+    "id",
+    "experiment_id",
+    "pore",
+    "risk_level",
+    "requires_human_judgment",
+    "action",
     "created_at",
 )
 
@@ -230,6 +245,32 @@ class PgLogClient:
             rows = cur.fetchall()
 
         return [dict(zip(_EXPERIMENT_COLUMNS, row)) for row in rows]
+
+    def read_crossings(self, filter: dict | None = None) -> list[dict]:
+        """Read crossing rows as dicts (same shape as the in-memory fixture).
+
+        `filter` is an optional dict of column=value equality constraints. Column
+        names are validated against the known schema to keep this injection-safe.
+        """
+        sql = f"SELECT {', '.join(_CROSSING_COLUMNS)} FROM crossing"
+        params: list = []
+        if filter:
+            unknown = set(filter) - set(_CROSSING_COLUMNS)
+            if unknown:
+                raise ValueError(
+                    f"read_crossings: unknown filter column(s) {sorted(unknown)}; "
+                    f"valid columns are {list(_CROSSING_COLUMNS)}"
+                )
+            clauses = [f"{col} = %s" for col in filter]
+            sql += " WHERE " + " AND ".join(clauses)
+            params = list(filter.values())
+        sql += " ORDER BY id"
+
+        with self._conn.cursor() as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+        return [dict(zip(_CROSSING_COLUMNS, row)) for row in rows]
 
     def close(self) -> None:
         """Close the connection if this client opened it (via `from_dsn`)."""

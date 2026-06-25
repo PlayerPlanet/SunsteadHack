@@ -214,13 +214,15 @@ def _run_loop_worker(
                     f"falling back to '__default__'. Known workloads: {sorted(WORKLOAD_CATALOG)}"
                 )
 
-        # Run the loop
+        # Run the loop. ctx.actions is None for Postgres tasks (run_loop falls back
+        # to the builtin cleanroom.actions) and the domain adapter for epic #8 tasks.
         loop.run_loop(
             task_spec_copy,
             proposer=ctx.proposer,
             benchmark=ctx.benchmark,
             pore=ctx.pore,
             logclient=tapped_logclient,
+            actions=getattr(ctx, "actions", None),
             iterations=iterations,
         )
 

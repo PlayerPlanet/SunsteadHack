@@ -1,0 +1,63 @@
+{
+  "n_escalated": 15,
+  "n_approve": 8,
+  "n_reject": 7,
+  "majority_class_baseline": 0.5333333333333333,
+  "loo_per_lever_majority": {
+    "accuracy": 0.9333333333333333,
+    "correct": 14,
+    "n": 15,
+    "errors": [
+      {
+        "lever": "synchronous_commit",
+        "true": "reject",
+        "pred": "approve",
+        "drift": 0.8696
+      }
+    ]
+  },
+  "loo_logistic": {
+    "accuracy": 0.9333333333333333,
+    "correct": 14,
+    "n": 15,
+    "errors": [
+      {
+        "lever": "synchronous_commit",
+        "true": "reject",
+        "pred": "approve",
+        "drift": 0.8696
+      }
+    ]
+  },
+  "lever_separability": {
+    "fsync": {
+      "approve": 0,
+      "reject": 3
+    },
+    "full_page_writes": {
+      "approve": 0,
+      "reject": 3
+    },
+    "max_wal_size": {
+      "approve": 2,
+      "reject": 0
+    },
+    "shared_buffers": {
+      "approve": 2,
+      "reject": 0
+    },
+    "synchronous_commit": {
+      "approve": 4,
+      "reject": 1
+    }
+  },
+  "features": [
+    "fsync",
+    "full_page_writes",
+    "max_wal_size",
+    "shared_buffers",
+    "synchronous_commit",
+    "reversible",
+    "drift"
+  ]
+}

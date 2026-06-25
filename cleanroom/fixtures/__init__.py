@@ -246,6 +246,24 @@ class InMemoryLogClient:
                 results.append(exp)
         return results
 
+    def read_crossings(self, filter: dict | None = None) -> list[dict]:
+        """Read crossing records, optionally filtered by column=value.
+
+        Args:
+            filter: Optional dict of column=value constraints.
+
+        Returns:
+            List of matching crossing dicts.
+        """
+        if not filter:
+            return list(self.crossings)
+
+        results = []
+        for crossing in self.crossings:
+            if all(crossing.get(k) == v for k, v in filter.items()):
+                results.append(crossing)
+        return results
+
 
 class DummyProposer:
     """A simple proposer that generates varying candidates.
