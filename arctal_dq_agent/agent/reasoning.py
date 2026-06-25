@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 
 from .data import Context, num
@@ -112,7 +113,11 @@ class LLMReasoner:
 
     def __init__(self, first=HAIKU, strong=SONNET):
         import anthropic  # raises if missing -> caller guards with has_llm()
-        self._client = anthropic.Anthropic()
+        # A key pasted into a terminal often wraps, smuggling a newline + spaces into
+        # the value -> httpx rejects it as an illegal header before any request leaves
+        # the machine. API keys never contain whitespace, so strip ALL of it.
+        key = "".join((os.environ.get("ANTHROPIC_API_KEY") or "").split())
+        self._client = anthropic.Anthropic(api_key=key or None)
         self.first, self.strong = first, strong
         self.stats = _Stats()
 
@@ -151,6 +156,16 @@ class LLMReasoner:
         return []
 
     # -- LLM plumbing ------------------------------------------------------- #
+    def _heartbeat(self) -> None:
+        """Live progress to stderr so a multi-minute run never looks hung."""
+        s = self.stats
+        n = s.haiku_calls + s.sonnet_calls
+        line = f"  tier-1: {n} llm calls (haiku {s.haiku_calls}, sonnet {s.sonnet_calls})"
+        if sys.stderr.isatty():
+            print("\r" + line, end="", file=sys.stderr, flush=True)  # update in place
+        elif n % 25 == 0:                                            # piped: periodic line
+            print(line, file=sys.stderr, flush=True)
+
     def _ask(self, prompt: str, model: str, tag: str) -> tuple[str, float, str]:
         """One model call -> (VERDICT, confidence, one-line reason). Never raises."""
         try:
@@ -163,8 +178,10 @@ class LLMReasoner:
             if u:
                 self.stats.input_tokens += u.input_tokens
                 self.stats.output_tokens += u.output_tokens
+            self._heartbeat()
             return self._parse(msg.content[0].text)
         except Exception as e:  # network / rate-limit / parse -> abstain, never crash
+            self._heartbeat()
             return "UNSURE", 0.0, f"llm unavailable: {type(e).__name__}"
 
     @staticmethod

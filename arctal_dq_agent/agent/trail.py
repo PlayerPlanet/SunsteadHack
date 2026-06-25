@@ -35,9 +35,13 @@ _RE_SHARE = re.compile(rf"×\s*bond_share\s*([\d.]+)\s*=\s*({_N})")
 _RE_DIV = re.compile(rf"({_N})\s*/\s*({_N})\s*M\s*USD\s*=\s*({_N})")
 _RE_DENOM = re.compile(r"denom=(\w+)")
 
-# Relative tolerances. Trails are rounded for display (2 dp), so we allow ~1%.
-TOL_TRAIL = 1e-2
-TOL_BOND = 2e-2  # bond_USD vs the "/ NN.NM USD" the trail prints (often 1 dp)
+# Trails print values to 2 decimals, so a raw figure and its narrated twin can differ
+# by up to half a displayed unit purely from rounding. A real mismatch must clear BOTH
+# a relative gap (large numbers) AND an absolute floor (small numbers) — otherwise
+# e.g. stored 0.147 vs trail-displayed 0.15 would false-positive.
+TOL_TRAIL = 1e-2     # relative
+TOL_TRAIL_ABS = 5e-3  # absolute floor = half of the last shown digit at 2 dp
+TOL_BOND = 2e-2      # bond_USD vs the "/ NN.NM USD" the trail prints (often 1 dp)
 
 
 def _f(s: str) -> float:
@@ -46,6 +50,11 @@ def _f(s: str) -> float:
 
 def _rel(a: float, b: float) -> float:
     return abs(a - b) / (abs(b) if b else 1.0)
+
+
+def _mismatch(a: float, b: float) -> bool:
+    """True iff a and b differ by more than display-rounding can explain."""
+    return abs(a - b) > TOL_TRAIL_ABS and _rel(a, b) > TOL_TRAIL
 
 
 def reconcile_impact_trail(row: dict) -> list[Finding]:
@@ -64,7 +73,7 @@ def reconcile_impact_trail(row: dict) -> list[Finding]:
         share, product = _f(m.group(1)), _f(m.group(2))
         base_m = re.search(rf"({_N})\s*\w+\s*\([^)]*\)\s*×", trail) or re.search(rf"({_N})[^×]*×", trail)
         base = _f(base_m.group(1)) if base_m else None
-        if base is not None and _rel(base * share, product) > TOL_TRAIL:
+        if base is not None and _mismatch(base * share, product):
             out.append(Finding(
                 isin, "impacts", "impact_value", "trail_share_inconsistent",
                 "medium", 0.85, "flag", tier="trail",
@@ -73,7 +82,7 @@ def reconcile_impact_trail(row: dict) -> list[Finding]:
                 evidence={"base": base, "bond_share": share, "stated_product": product,
                           "recomputed": round(base * share, 2), "trail": excerpt},
             ))
-        if stored_value is not None and _rel(product, stored_value) > TOL_TRAIL:
+        if stored_value is not None and _mismatch(product, stored_value):
             out.append(_value_mismatch(isin, metric, product, stored_value, excerpt))
 
     # --- division step: numerator / denomM USD = quotient ------------------ #
@@ -83,7 +92,7 @@ def reconcile_impact_trail(row: dict) -> list[Finding]:
         # numerator should equal the stored impact value (the cross-check SQL can't do)
         if stored_value is not None and not any(f.check_id == "trail_value_mismatch" for f in out):
             # Only meaningful when there is no bond_share step rescaling the numerator.
-            if not _RE_SHARE.search(trail) and _rel(numer, stored_value) > TOL_TRAIL:
+            if not _RE_SHARE.search(trail) and _mismatch(numer, stored_value):
                 out.append(_value_mismatch(isin, metric, numer, stored_value, excerpt))
         # denominator basis: denom=bond means it should be the bond's USD size
         denom_basis = (_RE_DENOM.search(trail).group(1) if _RE_DENOM.search(trail) else "")
