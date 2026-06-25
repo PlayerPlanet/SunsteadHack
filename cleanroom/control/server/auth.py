@@ -205,34 +205,54 @@ class TokenValidator:
 
     def _principal(self, claims: dict) -> Principal:
         cfg = self.config
-        scopes = _extract_scopes(claims, cfg.scopes_claim)
-        tenant = claims.get(cfg.tenant_claim) or claims.get("client_id") or claims.get("azp")
-        db_role = self._resolve_role(claims, tenant)
-        subject = claims.get("sub") or "unknown"
-        return Principal(
-            subject=subject,
-            tenant=tenant,
-            scopes=frozenset(scopes),
-            db_role=db_role,
-            claims=claims,
+        return principal_from_claims(
+            claims,
+            scopes_claim=cfg.scopes_claim,
+            tenant_claim=cfg.tenant_claim,
+            role_claim=cfg.role_claim,
+            role_map=cfg.role_map,
+            default_role=cfg.default_role,
+            strict_role=True,
         )
 
-    def _resolve_role(self, claims: dict, tenant: str | None) -> str:
-        cfg = self.config
-        # 1) explicit role claim, if the AS issues one and it is provisioned
-        raw = claims.get(cfg.role_claim)
-        if raw:
-            try:
-                return validate_role(raw)
-            except RoleError as exc:
+
+def principal_from_claims(
+    claims: dict, *, scopes_claim: str = "scope", tenant_claim: str = "tenant",
+    role_claim: str = "db_role", role_map: dict | None = None,
+    default_role: str = ROLE_READONLY, strict_role: bool = True,
+) -> Principal:
+    """Map already-decoded JWT claims to a Principal.
+
+    Shared by TokenValidator (which decodes+verifies the token) and the AgentCore
+    identity-extraction middleware (which trusts the platform's verification and only
+    decodes). `strict_role=True` rejects an unprovisioned role claim (the validator
+    path); `strict_role=False` falls back to least privilege instead of erroring (the
+    runtime path, where AgentCore has already authenticated the caller).
+    """
+    role_map = role_map or {}
+    scopes = _extract_scopes(claims, scopes_claim)
+    tenant = claims.get(tenant_claim) or claims.get("client_id") or claims.get("azp")
+    raw = claims.get(role_claim)
+    if raw:
+        try:
+            db_role = validate_role(raw)
+        except RoleError as exc:
+            if strict_role:
                 # A claim asking for a non-provisioned role is a hard auth failure,
                 # not a silent downgrade — surfacing it beats quietly over-granting.
                 raise AuthError(403, "insufficient_scope", str(exc)) from exc
-        # 2) tenant -> role mapping
-        if tenant and tenant in cfg.role_map:
-            return validate_role(cfg.role_map[tenant])
-        # 3) least-privilege default
-        return validate_role(cfg.default_role)
+            db_role = validate_role(default_role)
+    elif tenant and tenant in role_map:
+        db_role = validate_role(role_map[tenant])
+    else:
+        db_role = validate_role(default_role)
+    return Principal(
+        subject=claims.get("sub") or "unknown",
+        tenant=tenant,
+        scopes=frozenset(scopes),
+        db_role=db_role,
+        claims=claims,
+    )
 
 
 def _extract_scopes(claims: dict, scopes_claim: str) -> set[str]:
@@ -269,7 +289,7 @@ def authorize_tool(principal: Principal, tool_name: str) -> None:
 
 __all__ = [
     "AuthError", "Principal", "OAuthResourceConfig", "TokenValidator",
-    "make_jwks_key_resolver", "authorize", "authorize_tool",
+    "make_jwks_key_resolver", "authorize", "authorize_tool", "principal_from_claims",
     "SCOPE_READ", "SCOPE_REGISTER", "SCOPE_DISPATCH", "SCOPE_ADJUDICATE",
     "ALL_SCOPES", "TOOL_SCOPES",
     "ROLE_ALLOWLIST", "ROLE_OPERATOR", "ROLE_READONLY",
