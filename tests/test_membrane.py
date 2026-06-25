@@ -25,7 +25,12 @@ from cleanroom.types import Candidate
 # Pinned hash of the FROZEN base pore. The pore is frozen by contract (see its module
 # docstring and cleanroom/types.py): editing it requires co-author sign-off AND a
 # deliberate update of this pin. Issue #20's membrane must NOT move this ruler.
-FROZEN_PORE_SHA256 = "ae0ab3b284cee68d378db4f8190bfb952827310c562f1b4aab0b74d6952ec6fd"
+# NOTE: this is the LF (canonical git-blob) hash. The original pin (ae0ab3b2...) was the
+# CRLF rendering — it was computed on a Windows checkout where autocrlf turned the LF
+# blob into CRLF on disk, so the test passed locally but failed on Linux CI (which reads
+# LF). The pore content never changed. .gitattributes now pins this file to eol=lf so the
+# on-disk bytes are deterministic across platforms and this hash holds everywhere.
+FROZEN_PORE_SHA256 = "aaeb71904ef3d88ce6d798be83810ab4376f14d9267440ebef045295c503e540"
 
 
 def _guc(name: str, reversible: bool = True) -> Candidate:

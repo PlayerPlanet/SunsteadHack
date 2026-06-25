@@ -1,0 +1,5 @@
+# The base pore is frozen by contract and pinned by sha256 in
+# tests/test_membrane.py (test_frozen_pore_byte_for_byte_unchanged). Force LF so the
+# on-disk bytes are identical on every platform; otherwise Windows autocrlf renders it
+# as CRLF and the byte-for-byte hash check fails depending on where it runs.
+cleanroom/pore/__init__.py text eol=lf
