@@ -58,11 +58,26 @@ def main(argv=None) -> int:
           "unverifiable needs JUDGMENT (the only right move is to ask a human).")
 
     agents = [JudgeOnlyAgent(), StationarityAgent(threshold=0.6)]
+
+    # The Arctal take-home data-quality agent, wired in as a candidate (deterministic
+    # tiers; no API key). Guarded so the instrument still runs if the deliverable
+    # isn't alongside.
+    try:
+        from .candidates import DQAgentCandidate
+        agents.append(DQAgentCandidate(use_llm=False))
+    except Exception as e:  # noqa: BLE001
+        print(f"[dq_agent skipped] {type(e).__name__}: {e}")
+
     if args.llm:
         have_sdk = importlib.util.find_spec("anthropic") is not None
         have_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
         if have_sdk and have_key:
             agents.append(LLMAgent())
+            try:
+                from .candidates import DQAgentCandidate
+                agents.append(DQAgentCandidate(use_llm=True))
+            except Exception as e:  # noqa: BLE001
+                print(f"[dq_agent:llm skipped] {type(e).__name__}: {e}")
             print("\n[--llm on] one quick model call per per_million claim that passes the judge "
                   "(~150 calls, ~1-2 min; progress dots on stderr).")
         else:
