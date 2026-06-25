@@ -18,7 +18,18 @@
       "instrumentation": {
         "enableOtel": false
       },
-      "protocol": "MCP"
+      "protocol": "MCP",
+      "envVars": [
+        { "name": "CLEANROOM_PG_SECRET_ID", "value": "arn:aws:secretsmanager:us-east-1:528081867249:secret:sunstead/control/app-dsn-YnYkc4" },
+        { "name": "AWS_REGION", "value": "us-east-1" }
+      ],
+      "authorizerType": "CUSTOM_JWT",
+      "authorizerConfiguration": {
+        "customJwtAuthorizer": {
+          "discoveryUrl": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_8d4jfqwov/.well-known/openid-configuration",
+          "allowedClients": ["63auvvkvkkj3g1gh8irop8r31a", "outtihri51t6btrifmrl4kaua"]
+        }
+      }
     }
   ],
   "memories": [],
