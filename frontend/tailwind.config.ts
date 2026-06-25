@@ -5,9 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        surface: "#0f0f0f",
-        card: "#161616",
-        border: "#262626",
+        navy: "#1a3a6b",
+        "navy-dark": "#122850",
+        sidebar: "#ffffff",
+        "sidebar-hover": "#f0f4ff",
+        "sidebar-active": "#e8eeff",
       },
     },
   },

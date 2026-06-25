@@ -7,21 +7,22 @@ export default function StatCard({
   label: string;
   value: string;
   sub?: string;
-  accent?: "green" | "amber" | "red" | "neutral";
+  accent?: "navy" | "green" | "amber" | "red" | "neutral";
 }) {
   const colors = {
-    green: "text-emerald-400",
-    amber: "text-amber-400",
-    red: "text-red-400",
-    neutral: "text-white",
+    navy: "text-navy",
+    green: "text-emerald-600",
+    amber: "text-amber-600",
+    red: "text-red-600",
+    neutral: "text-gray-900",
   };
   return (
-    <div className="bg-card border border-border rounded-lg p-5">
-      <p className="text-xs text-neutral-500 uppercase tracking-wider mb-2">{label}</p>
+    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">{label}</p>
       <p className={`text-3xl font-semibold tabular-nums ${colors[accent ?? "neutral"]}`}>
         {value}
       </p>
-      {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
+      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
     </div>
   );
 }

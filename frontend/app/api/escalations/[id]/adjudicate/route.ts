@@ -3,11 +3,11 @@ import { auth } from "@/auth";
 import { roleFromGroups, canAdjudicate } from "@/lib/roles";
 import { callControlTool } from "@/lib/control";
 
-// Adjudication is a privileged mutation, so it does NOT write the DB directly. It goes
-// through the deployed control-plane runtime with the user's Cognito bearer, which
-// enforces the control:adjudicate scope and SET ROLE sunstead_operator in Postgres.
-// The browser-side gate (canAdjudicate) is UX only; this server check + the runtime are
-// the real enforcement.
+// Adjudication is a privileged mutation, so it does NOT write the DB directly (and does
+// not use the unauthenticated control-plane shim). It goes through the deployed AgentCore
+// runtime with the user's Cognito bearer, which enforces the control:adjudicate scope and
+// SET ROLE sunstead_operator in Postgres. The browser-side gate (canAdjudicate) is UX
+// only; this server check + the runtime are the real enforcement.
 export const runtime = "nodejs"; // MCP client + Aiven egress aren't Edge-safe
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
