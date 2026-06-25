@@ -113,7 +113,11 @@ class LLMReasoner:
 
     def __init__(self, first=HAIKU, strong=SONNET):
         import anthropic  # raises if missing -> caller guards with has_llm()
-        self._client = anthropic.Anthropic()
+        # A key pasted into a terminal often wraps, smuggling a newline + spaces into
+        # the value -> httpx rejects it as an illegal header before any request leaves
+        # the machine. API keys never contain whitespace, so strip ALL of it.
+        key = "".join((os.environ.get("ANTHROPIC_API_KEY") or "").split())
+        self._client = anthropic.Anthropic(api_key=key or None)
         self.first, self.strong = first, strong
         self.stats = _Stats()
 
