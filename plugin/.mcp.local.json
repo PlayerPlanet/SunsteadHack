@@ -1,0 +1,21 @@
+{
+  "//": "LOCAL DEV ONLY — Claude Code does NOT auto-load this file (it only loads .mcp.json). These stdio servers import the repo's `cleanroom` / `bonds_instrument` packages, so they only work from a repo checkout with the source on PYTHONPATH and deps installed. A marketplace install has no source on path and will fail with -32000. For normal use the plugin ships the hosted HTTP transport in .mcp.json. To use stdio locally, copy this file over .mcp.json in your checkout (or run the modules directly per plugin/README.md).",
+  "mcpServers": {
+    "sunstead-control": {
+      "command": "python",
+      "args": ["-m", "cleanroom.control.server.mcp"],
+      "env": {
+        "comment": "Set CLEANROOM_PG_DSN to enable persistence to Aiven Postgres, e.g. CLEANROOM_PG_DSN='postgresql://user:pass@host:5432/db?sslmode=require'",
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/../.."
+      }
+    },
+    "sunstead-bench": {
+      "command": "python",
+      "args": ["-m", "bonds_instrument.mcp_server"],
+      "env": {
+        "comment": "Input-driven benchmark: benchmark_agent(agent_import, materials_path). No infra needed; frozen non-agentic judge (issue #28).",
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/../.."
+      }
+    }
+  }
+}

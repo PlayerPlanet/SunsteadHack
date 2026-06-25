@@ -174,17 +174,19 @@ claude mcp add --transport http --callback-port 8080 sunstead-control \
 
 On first use Claude opens a browser sign-in; tokens are stored in your keychain and
 auto-refreshed. You land as a **read-only viewer** until an operator adds your Cognito
-user to a group. The plugin already ships this config in
-[`plugin/.mcp.remote.json`](plugin/.mcp.remote.json) with the public client
-`1phgpdfcrftedtj69hhni18bue` defaulted in — so `--client-id` is optional. To point at
-your own runtime + Cognito pool, set `SUNSTEAD_CONTROL_URL` and
-`SUNSTEAD_CONTROL_CLIENT_ID`.
+user to a group. This is the config the plugin ships in
+[`plugin/.mcp.json`](plugin/.mcp.json) (the file Claude Code auto-loads), with the public
+client `1phgpdfcrftedtj69hhni18bue` defaulted in — so `--client-id` is optional and a
+marketplace install just works. To point at your own runtime + Cognito pool, set
+`SUNSTEAD_CONTROL_URL` and `SUNSTEAD_CONTROL_CLIENT_ID`.
 
-**Local stdio alternative (development).** [`plugin/.mcp.json`](plugin/.mcp.json) runs
-`cleanroom.control.server.mcp` as a subprocess. It needs the repo on `PYTHONPATH`
-(resolved via `${CLAUDE_PLUGIN_ROOT}` — do not hardcode an absolute interpreter path) and,
-for shared state across sessions, an Aiven Postgres DSN. Without a DSN it falls back to
-in-memory storage (state is lost on MCP restart):
+**Local stdio alternative (development only).** The hosted transport is the only one that
+works from a marketplace install — that copy has no `cleanroom` source on `PYTHONPATH`, so
+the stdio servers fail with `-32000`. For local dev from a repo checkout,
+[`plugin/.mcp.local.json`](plugin/.mcp.local.json) runs `cleanroom.control.server.mcp`
+(and the `sunstead-bench` benchmark) as subprocesses; copy it over `.mcp.json` in your
+checkout. It needs the repo on `PYTHONPATH` and, for shared state across sessions, an
+Aiven Postgres DSN — without one it falls back to in-memory storage (lost on MCP restart):
 
 ```bash
 export CLEANROOM_PG_DSN="postgresql://user:pass@host:5432/db?sslmode=require"

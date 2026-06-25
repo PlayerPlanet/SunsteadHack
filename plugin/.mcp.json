@@ -1,19 +1,15 @@
 {
+  "//": "Distributed control-plane MCP server (AgentCore Runtime, Cognito-authed). Uses Claude Code's built-in OAuth flow — NO static Authorization header (a static header disables OAuth fallback and breaks on token expiry). On connect the runtime returns 401 + RFC 9728 protected-resource metadata, Claude Code discovers the Cognito authorization server, and runs an authorization-code + PKCE browser flow; tokens are stored in your keychain and auto-refreshed.",
+  "//distribution": "clientId below is a PUBLIC Cognito client — authorization-code + PKCE, NO secret. PKCE (not a secret) protects the flow, so this id is safe to ship: anyone who installs the plugin uses it as-is, signs in as themselves, and lands as a read-only viewer until an operator adds their Cognito user to a group. No `claude mcp login` / secret step. To point at your OWN AgentCore runtime + Cognito pool, override with env vars: SUNSTEAD_CONTROL_URL and SUNSTEAD_CONTROL_CLIENT_ID. callbackPort 8080 must match the http://localhost:8080/callback redirect on the Cognito client.",
+  "//local-dev": "A marketplace install has no `cleanroom` source on PYTHONPATH, so the stdio servers cannot run there — that path lives in .mcp.local.json for use from a repo checkout only.",
   "mcpServers": {
     "sunstead-control": {
-      "command": "python",
-      "args": ["-m", "cleanroom.control.server.mcp"],
-      "env": {
-        "comment": "Set CLEANROOM_PG_DSN to enable persistence to Aiven Postgres, e.g. CLEANROOM_PG_DSN='postgresql://user:pass@host:5432/db?sslmode=require'",
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/../.."
-      }
-    },
-    "sunstead-bench": {
-      "command": "python",
-      "args": ["-m", "bonds_instrument.mcp_server"],
-      "env": {
-        "comment": "Input-driven benchmark: benchmark_agent(agent_import, materials_path). No infra needed; frozen non-agentic judge (issue #28).",
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/../.."
+      "type": "http",
+      "url": "${SUNSTEAD_CONTROL_URL:-https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT}",
+      "oauth": {
+        "clientId": "${SUNSTEAD_CONTROL_CLIENT_ID:-1phgpdfcrftedtj69hhni18bue}",
+        "callbackPort": 8080,
+        "scopes": "openid email profile"
       }
     }
   }
