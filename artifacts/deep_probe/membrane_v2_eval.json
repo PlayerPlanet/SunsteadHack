@@ -1,0 +1,272 @@
+{
+  "n_escalations": 15,
+  "deployment_full_fit": {
+    "rho": 0.25,
+    "n": 15,
+    "false_clears": 0,
+    "false_clear_rate": 0.0,
+    "reclaimed_false_stops": 4,
+    "abstentions": 5,
+    "abstention_concentration": {
+      "synchronous_commit": 5
+    },
+    "escalations_kept": 6,
+    "by_lever": {
+      "synchronous_commit": {
+        "decision": "abstain",
+        "p_approve": 0.75,
+        "risk_class": "durability_tradeoff"
+      },
+      "fsync": {
+        "decision": "escalate",
+        "p_approve": 0.0714,
+        "risk_class": "durability_switch"
+      },
+      "full_page_writes": {
+        "decision": "escalate",
+        "p_approve": 0.0714,
+        "risk_class": "durability_switch"
+      },
+      "shared_buffers": {
+        "decision": "auto_clear",
+        "p_approve": 0.9,
+        "risk_class": "memory_sizing"
+      },
+      "max_wal_size": {
+        "decision": "auto_clear",
+        "p_approve": 0.9,
+        "risk_class": "wal_sizing"
+      }
+    }
+  },
+  "held_out_lolo": {
+    "v2": {
+      "summary": {
+        "n": 15,
+        "committed": 10,
+        "committed_correct": 10,
+        "false_clears": 0,
+        "reclaimed_cold": 4,
+        "abstentions": 5,
+        "abstention_rate": 0.3333333333333333
+      },
+      "per_lever": {
+        "fsync": {
+          "n": 3,
+          "decisions": {
+            "escalate": 3
+          },
+          "true": {
+            "reject": 3
+          }
+        },
+        "full_page_writes": {
+          "n": 3,
+          "decisions": {
+            "escalate": 3
+          },
+          "true": {
+            "reject": 3
+          }
+        },
+        "max_wal_size": {
+          "n": 2,
+          "decisions": {
+            "auto_clear": 2
+          },
+          "true": {
+            "approve": 2
+          }
+        },
+        "shared_buffers": {
+          "n": 2,
+          "decisions": {
+            "auto_clear": 2
+          },
+          "true": {
+            "approve": 2
+          }
+        },
+        "synchronous_commit": {
+          "n": 5,
+          "decisions": {
+            "abstain": 5
+          },
+          "true": {
+            "reject": 1,
+            "approve": 4
+          }
+        }
+      }
+    },
+    "v1": {
+      "summary": {
+        "n": 15,
+        "committed": 0,
+        "committed_correct": 0,
+        "false_clears": 0,
+        "reclaimed_cold": 0,
+        "abstentions": 15,
+        "abstention_rate": 1.0
+      },
+      "per_lever": {
+        "fsync": {
+          "n": 3,
+          "decisions": {
+            "abstain": 3
+          }
+        },
+        "full_page_writes": {
+          "n": 3,
+          "decisions": {
+            "abstain": 3
+          }
+        },
+        "max_wal_size": {
+          "n": 2,
+          "decisions": {
+            "abstain": 2
+          }
+        },
+        "shared_buffers": {
+          "n": 2,
+          "decisions": {
+            "abstain": 2
+          }
+        },
+        "synchronous_commit": {
+          "n": 5,
+          "decisions": {
+            "abstain": 5
+          }
+        }
+      }
+    },
+    "marquee": {
+      "held_out": "fsync (all instances removed from training)",
+      "true_human_verdict": "reject",
+      "v2_cold_prediction": "escalate",
+      "v2_reason": "escalate: p_reject=0.88 >= 0.75",
+      "v1_cold_prediction": "abstain",
+      "note": "v2 learns data_loss=HIGH->reject from full_page_writes and applies it to the never-seen fsync; v1 has no precedent for the *name* and can only abstain."
+    }
+  },
+  "pareto_frontier": {
+    "n_escalations": 15,
+    "points": [
+      {
+        "rho": 0.05,
+        "reclaimed": 0,
+        "false_clears": 0,
+        "cleared": 0,
+        "false_clear_rate": 0.0,
+        "remaining_escalations": 15
+      },
+      {
+        "rho": 0.1,
+        "reclaimed": 4,
+        "false_clears": 0,
+        "cleared": 4,
+        "false_clear_rate": 0.0,
+        "remaining_escalations": 11
+      },
+      {
+        "rho": 0.15,
+        "reclaimed": 4,
+        "false_clears": 0,
+        "cleared": 4,
+        "false_clear_rate": 0.0,
+        "remaining_escalations": 11
+      },
+      {
+        "rho": 0.2,
+        "reclaimed": 4,
+        "false_clears": 0,
+        "cleared": 4,
+        "false_clear_rate": 0.0,
+        "remaining_escalations": 11
+      },
+      {
+        "rho": 0.25,
+        "reclaimed": 4,
+        "false_clears": 0,
+        "cleared": 4,
+        "false_clear_rate": 0.0,
+        "remaining_escalations": 11
+      },
+      {
+        "rho": 0.3,
+        "reclaimed": 8,
+        "false_clears": 1,
+        "cleared": 9,
+        "false_clear_rate": 0.1111111111111111,
+        "remaining_escalations": 6
+      },
+      {
+        "rho": 0.35,
+        "reclaimed": 8,
+        "false_clears": 1,
+        "cleared": 9,
+        "false_clear_rate": 0.1111111111111111,
+        "remaining_escalations": 6
+      },
+      {
+        "rho": 0.4,
+        "reclaimed": 8,
+        "false_clears": 1,
+        "cleared": 9,
+        "false_clear_rate": 0.1111111111111111,
+        "remaining_escalations": 6
+      },
+      {
+        "rho": 0.5,
+        "reclaimed": 8,
+        "false_clears": 1,
+        "cleared": 9,
+        "false_clear_rate": 0.1111111111111111,
+        "remaining_escalations": 6
+      },
+      {
+        "rho": 0.7,
+        "reclaimed": 8,
+        "false_clears": 1,
+        "cleared": 9,
+        "false_clear_rate": 0.1111111111111111,
+        "remaining_escalations": 6
+      },
+      {
+        "rho": 0.9,
+        "reclaimed": 8,
+        "false_clears": 1,
+        "cleared": 9,
+        "false_clear_rate": 0.1111111111111111,
+        "remaining_escalations": 6
+      }
+    ],
+    "v1_equivalent": {
+      "reclaimed": 4,
+      "false_clears": 0,
+      "note": "v1's single bend point \u2014 the zero-false-clear knee"
+    }
+  },
+  "ood_demo": {
+    "result_semantics_rewrite": {
+      "decision": "abstain",
+      "ood": true,
+      "reason": "changes-result-semantics",
+      "risk_class": "semantic_rewrite"
+    },
+    "unknown_systemic_lever": {
+      "decision": "abstain",
+      "ood": true,
+      "reason": "ood-unrecognised-lever",
+      "risk_class": "unknown"
+    },
+    "irreversible_table_rewrite": {
+      "decision": "abstain",
+      "ood": false,
+      "reason": "irreversible-never-cleared",
+      "risk_class": "table_rewrite"
+    }
+  }
+}
