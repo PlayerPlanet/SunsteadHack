@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import os
 import threading
 from typing import Callable
 
@@ -186,6 +187,7 @@ def _run_loop_worker(
         run_store: SwappableRunStore for atomic status updates.
         cancel_event: threading.Event for cancellation signaling.
     """
+    workload_conn = None
     try:
         # Mark as running
         now_iso = datetime.datetime.now(datetime.UTC).isoformat()
@@ -213,6 +215,18 @@ def _run_loop_worker(
                     f"workload_id {workload_id!r} not in catalog and not pre-registered; "
                     f"falling back to '__default__'. Known workloads: {sorted(WORKLOAD_CATALOG)}"
                 )
+
+        # integration#1: a Postgres task carries no conn (domains seed an env dict via
+        # bind_domain). Open the workload DB connection from CLEANROOM_WORKLOAD_DSN so
+        # run_loop's benchmark + actions have a real psycopg connection; closed in the
+        # finally below. Autocommit so reversible CREATE/DROP INDEX persist per step.
+        if task_spec_copy.get("conn") is None:
+            workload_dsn = os.environ.get("CLEANROOM_WORKLOAD_DSN")
+            if workload_dsn:
+                from cleanroom.db import connect
+
+                workload_conn = connect(workload_dsn, autocommit=True)
+                task_spec_copy["conn"] = workload_conn
 
         # Run the loop. ctx.actions is None for Postgres tasks (run_loop falls back
         # to the builtin cleanroom.actions) and the domain adapter for epic #8 tasks.
@@ -244,6 +258,14 @@ def _run_loop_worker(
             error_msg=str(e),
             ended_at=now_iso,
         )
+
+    finally:
+        # Close the workload connection if integration#1 opened one for this run.
+        if workload_conn is not None:
+            try:
+                workload_conn.close()
+            except Exception:
+                pass
 
 
 def dispatch_background_run(

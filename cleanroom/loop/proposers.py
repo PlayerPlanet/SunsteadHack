@@ -16,6 +16,29 @@ import os
 from cleanroom.types import Candidate
 
 
+def _balanced_json_objects(text: str) -> list[str]:
+    """Return balanced {...} substrings of `text` (candidate JSON objects).
+
+    Handles nested braces (e.g. params), so a JSON object embedded in prose — when a
+    model ignores the 'JSON only' instruction and leads with analysis — can still be
+    recovered from its final message.
+    """
+    out: list[str] = []
+    depth = 0
+    start = None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}" and depth > 0:
+            depth -= 1
+            if depth == 0 and start is not None:
+                out.append(text[start : i + 1])
+                start = None
+    return out
+
+
 class ClaudeProposer:
     """Agentic proposer using Claude API to suggest database optimization candidates.
 
@@ -480,22 +503,27 @@ Your FINAL response must be ONLY a raw JSON object (no markdown, no explanation)
                 f"envelope keys: {list(envelope.keys())}"
             )
 
-        # The result may be wrapped in markdown fences; extract the JSON
-        # Look for ```json ... ``` or just bare JSON
-        fenced_match = re.search(r"```(?:json)?\s*(.*?)\s*```", result_str, re.DOTALL)
-        if fenced_match:
-            json_str = fenced_match.group(1)
-        else:
-            # Try bare JSON
-            json_str = result_str
+        # The candidate may be a bare object, wrapped in ```json fences, or — when a
+        # chatty model ignores the "JSON only" instruction — embedded in prose. Try
+        # fenced blocks, then the bare string, then any balanced {...} that parses and
+        # carries a "type" key. First match wins.
+        obj = None
+        attempts: list[str] = re.findall(r"```(?:json)?\s*(.*?)\s*```", result_str, re.DOTALL)
+        attempts.append(result_str)
+        attempts.extend(_balanced_json_objects(result_str))
+        for attempt in attempts:
+            try:
+                parsed = json.loads(attempt)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict) and "type" in parsed:
+                obj = parsed
+                break
 
-        # Parse the extracted JSON
-        try:
-            obj = json.loads(json_str)
-        except json.JSONDecodeError as e:
+        if obj is None:
             raise ValueError(
-                f"Failed to parse embedded JSON from result: {e}. "
-                f"result: {result_str[:500]}"
+                "Failed to parse embedded JSON from result (no parseable candidate "
+                f"object found). result: {result_str[:500]}"
             )
 
         # Validate structure

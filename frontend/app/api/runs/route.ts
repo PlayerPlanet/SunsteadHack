@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { getDb } from "@/lib/db";
-import { cp, hasControlPlane } from "@/lib/api";
 import { mockRuns, mockCurve } from "@/lib/mock";
 
 // Reads → pg → Aiven sunstead_control (BFF design):
 //   GET /api/runs                — list runs       (run table)
 //   GET /api/runs?task_id=X       — descent curve   (experiment table)
-// Action → MCP → AgentCore (not yet deployed):
-//   POST /api/runs                — dispatch a run
+// Dispatch → web/worker split: the web tier ENQUEUES a run (state='queued'); a worker
+// process (`python -m cleanroom.control.worker`) claims it via run_queued_idx and runs
+// the loop. We never run the loop in a request.
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
@@ -42,22 +43,22 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json();
-
-  // Dispatch is an action → MCP → AgentCore Gateway. Until the runtime is deployed
-  // there is no edge to call, so we surface that explicitly rather than faking a run.
-  if (!hasControlPlane()) {
-    return NextResponse.json(
-      { error: "Dispatch is unavailable until the AgentCore control-plane runtime is deployed." },
-      { status: 503 }
-    );
+  const taskId = body.task_id;
+  const model = body.model ?? "claude-haiku-4-5-20251001";
+  const iterations = Number(body.iterations ?? 4);
+  if (!taskId) {
+    return NextResponse.json({ error: "task_id is required" }, { status: 400 });
   }
 
+  const sql = getDb();
+  if (!sql) return NextResponse.json({ run_id: `mock-${Date.now()}`, state: "queued", mock: true });
+
   try {
-    const data = await cp<{ run_id: string }>("/runs", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
-    return NextResponse.json(data);
+    const run_id = randomUUID().replace(/-/g, "").slice(0, 12);
+    await sql`
+      INSERT INTO run (run_id, task_id, model, state, iterations_done, iterations_target)
+      VALUES (${run_id}, ${taskId}, ${model}, 'queued', 0, ${iterations})`;
+    return NextResponse.json({ run_id, state: "queued" });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
