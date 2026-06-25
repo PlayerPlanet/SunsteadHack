@@ -29,6 +29,18 @@ variable "app_dsn_secret_value" {
   description = "Aiven Postgres DSN for the NON-SUPERUSER sunstead_app login (sslmode=require). Stored in Secrets Manager; never the avnadmin DSN."
 }
 
+variable "github_repo" {
+  type        = string
+  description = "owner/name of the GitHub repo allowed to assume the deploy role via OIDC."
+  default     = "PlayerPlanet/SunsteadHack"
+}
+
+variable "create_oidc_provider" {
+  type        = bool
+  description = "Create the GitHub OIDC provider. Set false if the account already has one."
+  default     = true
+}
+
 variable "web_desired_count" {
   type    = number
   default = 2

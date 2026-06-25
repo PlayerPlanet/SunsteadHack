@@ -87,6 +87,32 @@ Use `plugin/.mcp.remote.json` (set `url` to `https://<domain_name>/mcp`) instead
 stdio `plugin/.mcp.json`. Claude's connector handles the OAuth handshake by reading the
 server's `/.well-known/oauth-protected-resource`.
 
+## CI/CD (GitHub Actions)
+
+Three workflows under `.github/workflows/`:
+
+| Workflow | Trigger | Does |
+|---|---|---|
+| `ci.yml` | PR + push to main | pytest, `terraform fmt -check`/`validate`, `docker build` (no push) |
+| `deploy.yml` | push to `main` (app paths) + manual | OIDC → build+push to ECR (`:sha` + `:latest`) → `ecs update-service --force-new-deployment` for web+worker → wait stable |
+| `infra.yml` | manual only (plan/apply input) | `terraform plan`/`apply` for VPC/ALB/ECS/Cognito |
+
+**App deploys auto-roll on merge to main; infra never does** (manual `infra.yml` only),
+so a code merge can't silently mutate infrastructure.
+
+### One-time setup
+1. `terraform apply` once (includes `ecr.tf` + `github_oidc.tf`). Grab the outputs:
+   `ecr_repository_url`, `github_deploy_role_arn`.
+2. Set `var.container_image = "<ecr_repository_url>:latest"` so force-new-deployment rolls the new image.
+3. In GitHub repo settings:
+   - **Secrets:** `AWS_DEPLOY_ROLE_ARN` (= `github_deploy_role_arn`), `APP_DSN`, `ACM_CERTIFICATE_ARN`.
+   - **Variables:** `AWS_REGION`, `ECR_REPOSITORY` (repo name), `ECS_CLUSTER`, `WEB_SERVICE`, `WORKER_SERVICE`, `DOMAIN_NAME`, `CONTAINER_IMAGE`.
+   - Add a `production` **Environment** with required reviewers to gate deploys.
+4. For shared state, configure a remote tf backend (S3+DynamoDB) before relying on `infra.yml`.
+
+Auth is OIDC — **no static AWS keys** in the repo. The deploy role trusts only
+`repo:<owner>/<name>:*` and is scoped to ECR push + ECS rollout of these two services.
+
 ## How auth flows at request time
 1. Client calls `/mcp` with `Authorization: Bearer <access_token>`.
 2. `BearerAuthMiddleware` validates it (RS256 against the Cognito JWKS, checks

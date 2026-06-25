@@ -29,7 +29,9 @@ worker) + Secrets Manager (app DSN) + Cognito (OAuth Authorization Server).
 - `cognito.tf` — user pool, resource server (the `control:*` scopes), machine client
 - `secrets.tf` — app DSN in Secrets Manager
 - `iam.tf` — execution role (image pull + secret read) + task role
-- `outputs.tf` — ALB DNS, MCP URL, OAuth issuer/JWKS, Cognito token endpoint
+- `ecr.tf` — image registry the CI/CD pipeline pushes to (+ lifecycle policy)
+- `github_oidc.tf` — GitHub OIDC provider + deploy role (ECR push + ECS rollout, this repo only)
+- `outputs.tf` — ALB DNS, MCP URL, OAuth issuer/JWKS, Cognito token endpoint, ECR URL, deploy-role ARN
 
 ## Production hardening (not done here)
 - Move tasks to private subnets + NAT; restrict task egress to Aiven + Cognito.
