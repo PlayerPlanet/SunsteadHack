@@ -1,0 +1,86 @@
+<title>Membrane v2 — generalization & the cost/risk frontier</title>
+<style>
+  :root {
+    --ground:#14171c; --panel:#1b1f27; --panel-2:#212732; --ink:#e9ebef; --muted:#8b94a3;
+    --faint:#5b6573; --hair:#2a3039; --ember:#e8732c; --approve:#37a892; --reject:#e0526b;
+    --abstain:#d9a441;
+    --serif:Georgia,"Times New Roman",serif; --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,Menlo,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:960px; margin:0 auto; padding:clamp(28px,5vw,72px) clamp(20px,4vw,48px); }
+  .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; } .muted { color:var(--muted); }
+  .eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--ember); margin:0 0 22px; }
+  h1 { font-family:var(--serif); font-weight:400; text-wrap:balance; font-size:clamp(28px,5vw,46px); line-height:1.1; margin:0 0 18px; letter-spacing:-.01em; }
+  h1 em { font-style:italic; color:var(--ember); }
+  h2 { font-family:var(--serif); font-weight:400; font-size:24px; margin:48px 0 14px; }
+  .lede { font-size:18px; color:var(--muted); max-width:64ch; }
+  .fig { background:var(--panel); border:1px solid var(--hair); border-radius:12px; padding:20px; margin:28px 0; overflow-x:auto; }
+  svg { width:100%; height:auto; min-width:560px; }
+  .grid { stroke:var(--hair); } .axis { stroke:var(--faint); stroke-width:1.5; }
+  .ytick { fill:var(--muted); font:12px var(--mono); } .axlabel { fill:var(--muted); font:13px var(--sans); }
+  .frontier { fill:none; stroke:var(--ember); stroke-width:2.5; }
+  .pt { fill:var(--ember); } .knee { fill:var(--approve); } .lbl { font:12px var(--sans); } .knee-t { fill:var(--approve); }
+  table { width:100%; border-collapse:collapse; margin:14px 0; font-size:14px; }
+  th,td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--hair); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  .win { color:var(--approve); font-weight:600; } .dec-abstain { color:var(--abstain); font-weight:600; }
+  .dl-high { color:var(--reject); } .dl-bounded { color:var(--abstain); } .dl-none { color:var(--approve); }
+  .stats { display:flex; gap:14px; flex-wrap:wrap; margin:22px 0; }
+  .stat { background:var(--panel); border:1px solid var(--hair); border-radius:10px; padding:14px 18px; flex:1; min-width:150px; }
+  .stat .n { font-family:var(--serif); font-size:30px; display:block; } .stat .k { color:var(--muted); font-size:13px; }
+  .caveat { background:var(--panel-2); border-left:3px solid var(--ember); border-radius:0 8px 8px 0; padding:16px 20px; color:var(--muted); font-size:14px; margin:32px 0; }
+  p { max-width:68ch; } code { font-family:var(--mono); background:var(--panel-2); padding:1px 5px; border-radius:4px; }
+</style>
+<div class="wrap">
+  <p class="eyebrow">Boundary Instrument · Membrane v2 · shadow only</p>
+  <h1>From memorizing names to <em>generalizing risk</em>.</h1>
+  <p class="lede">v1 keyed on the lever name and abstained on everything it hadn't seen. v2 keys on the
+  lever's <em>risk profile</em>, so a never-before-seen lever inherits the verdict of its profile-peers —
+  real cross-lever generalization, still measured against the unchanged frozen ruler.</p>
+
+  <div class="stats">
+    <div class="stat"><span class="n win">10/10</span><span class="k">correct cold calls on held-out levers</span></div>
+    <div class="stat"><span class="n">0</span><span class="k">cold calls v1 could make (it abstains)</span></div>
+    <div class="stat"><span class="n win">0</span><span class="k">held-out false-clears</span></div>
+    <div class="stat"><span class="n">33%</span><span class="k">v2 abstention (was 100% in v1)</span></div>
+  </div>
+
+  <h2>The marquee</h2>
+  <p>Hold out <code>fsync</code> <strong>entirely</strong> → v2 predicts <strong class="win">escalate</strong>
+  cold (human verdict: reject); v1 → <strong>abstain</strong>. v2 learned
+  <code>data_loss_on_crash=HIGH → reject</code> from <code>full_page_writes</code> and applied it to a lever it had
+  never seen. That is the qualitative step v1 structurally cannot take.</p>
+
+  <h2>The cost / risk frontier</h2>
+  <p>v2's decision is cost-theoretic: clear iff predicted <code>P(reject) &lt; rho</code>, where
+  <code>rho = C_human / C_false_clear</code>. Sweeping <code>rho</code> traces the whole tradeoff. The
+  zero-false-clear knee sits exactly where v1's single point lived — past it, the operator can dial up
+  reclaimed slack by accepting the one ambiguous reject.</p>
+  <div class="fig"><svg viewBox="0 0 720 340" role="img" aria-label="Pareto frontier: reclaimed slack vs false-clears">
+  <line x1="56" y1="292.0" x2="680" y2="292.0" class="grid"/><text x="48" y="296.0" class="ytick">0</text><line x1="56" y1="24.0" x2="680" y2="24.0" class="grid"/><text x="48" y="28.0" class="ytick">1</text>
+  <line x1="56" y1="24" x2="56" y2="292" class="axis"/>
+  <line x1="56" y1="292" x2="680" y2="292" class="axis"/>
+  <text x="368.0" y="332" class="axlabel" text-anchor="middle">false-stops reclaimed →</text>
+  <text x="16" y="158.0" class="axlabel" transform="rotate(-90 16 158.0)" text-anchor="middle">← false-clears (cost)</text>
+  <polyline points="56.0,292.0 368.0,292.0 680.0,24.0" class="frontier"/>
+  <circle cx="56.0" cy="292.0" r="4" class="pt"/><circle cx="368.0" cy="292.0" r="4" class="pt"/><circle cx="680.0" cy="24.0" r="4" class="pt"/>
+  <circle cx="368.0" cy="292.0" r="6" class="knee"/>
+  <text x="380.0" y="284.0" class="lbl knee-t">v1 knee — 4 reclaimed, 0 false-clears (rho≤0.25)</text>
+</svg></div>
+
+  <h2>The OOD abstain head</h2>
+  <p>v2 abstains when it has no basis to stand behind a call — now computable because the features are no
+  longer degenerate.</p>
+  <table><thead><tr><th>candidate</th><th>decision</th><th>why</th></tr></thead><tbody><tr><td class='mono'>result_semantics_rewrite</td><td class='dec-abstain'>abstain</td><td class='mono muted'>changes-result-semantics</td></tr><tr><td class='mono'>unknown_systemic_lever</td><td class='dec-abstain'>abstain</td><td class='mono muted'>ood-unrecognised-lever</td></tr><tr><td class='mono'>irreversible_table_rewrite</td><td class='dec-abstain'>abstain</td><td class='mono muted'>irreversible-never-cleared</td></tr></tbody></table>
+
+  <h2>The frozen risk taxonomy</h2>
+  <p>Domain priors from documented PostgreSQL behaviour, defined <em>independent of the labels</em>. This is
+  the honesty boundary: the claim is that <em>with</em> such priors the slack generalizes, not that it is
+  learned from 15 rows.</p>
+  <table><thead><tr><th>lever</th><th>risk class</th><th>data-loss-on-crash</th><th>rationale</th></tr></thead>
+  <tbody><tr><td class='mono'>fsync</td><td>durability_switch</td><td class='dl-high'>high</td><td class='muted'>fsync=off stops flushing WAL/data to disk; a crash can leave an unrecoverable, corrupt cluster. Documented as unsafe unless the whole cluster is disposable.</td></tr><tr><td class='mono'>full_page_writes</td><td>durability_switch</td><td class='dl-high'>high</td><td class='muted'>full_page_writes=off risks torn pages after a crash mid-write -> silent corruption. A correctness guarantee, not a tuning knob.</td></tr><tr><td class='mono'>synchronous_commit</td><td>durability_tradeoff</td><td class='dl-bounded'>bounded</td><td class='muted'>synchronous_commit=off returns success before WAL is durably flushed; a crash loses only the last few committed txns, with NO corruption. A bounded, common latency/durability tradeoff — the genuinely ambiguous case.</td></tr><tr><td class='mono'>wal_level</td><td>replication_capability</td><td class='dl-bounded'>bounded</td><td class='muted'>Lowering wal_level can break replicas / PITR; raising is safe. Restart-required, and the effect is on recoverability infrastructure, not the primary's data.</td></tr><tr><td class='mono'>shared_buffers</td><td>memory_sizing</td><td class='dl-none'>none</td><td class='muted'>Pure memory-sizing for the buffer cache; affects throughput only and is fully recoverable. Restart-required (availability blast), no data risk.</td></tr><tr><td class='mono'>max_connections</td><td>capacity_sizing</td><td class='dl-none'>none</td><td class='muted'>Connection-slot sizing; restart-required and high blast (bounces sessions) but no durability or result-semantics risk.</td></tr><tr><td class='mono'>max_wal_size</td><td>wal_sizing</td><td class='dl-none'>none</td><td class='muted'>Soft cap on WAL between checkpoints; trades disk for checkpoint frequency. Online, fully recoverable, no data risk.</td></tr><tr><td class='mono'>work_mem</td><td>memory_sizing</td><td class='dl-none'>none</td><td class='muted'>Per-node sort/hash memory; planner/throughput only, online, recoverable.</td></tr><tr><td class='mono'>random_page_cost</td><td>planner_cost</td><td class='dl-none'>none</td><td class='muted'>Planner cost constant; changes plan choice, never results. Online, recoverable.</td></tr><tr><td class='mono'>effective_cache_size</td><td>planner_cost</td><td class='dl-none'>none</td><td class='muted'>Planner hint about OS cache size; influences plans only. Online, recoverable.</td></tr></tbody></table>
+
+  <div class="caveat">n is still 15. Trust the generalization *shape*, not the magnitudes. The risk taxonomy is domain priors from PostgreSQL docs, defined independent of the labels (see cleanroom/membrane/taxonomy.py) — the claim is *with a small fixed risk taxonomy the slack generalizes across levers*, not that the verdict is learned tabula rasa. Still shadow-only; the frozen pore made every real decision and is byte-for-byte unchanged. Giving the membrane the wheel and cross-domain transfer remain out of scope.</div>
+</div>
