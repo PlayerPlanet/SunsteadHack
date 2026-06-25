@@ -1,0 +1,10 @@
+{
+  "task_id": "bio-molclass",
+  "objective": "Minimize 1-F1 on a held-out molecular-property test set. Test labels are never exposed to the proposer or its pipeline; train-on-test is rejected by check_correctness and the pore. Issue #11.",
+  "workload_id": "bio_molclass_f1",
+  "action_space": ["pipeline"],
+  "db_ref": "bundled:molclass",
+  "constraints": {},
+  "default_model": "claude-sonnet-4-6",
+  "state": "active"
+}

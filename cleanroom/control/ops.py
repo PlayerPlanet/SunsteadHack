@@ -20,6 +20,7 @@ import uuid
 from cleanroom.control.dispatcher.executor import dispatch_background_run
 from cleanroom.control.dispatcher.state import RunStatus
 from cleanroom.control.dispatcher.store_interface import SwappableRunStore
+from cleanroom.control.domains import resolve_domain
 from cleanroom.control.pore_boundary.escalation import pending_escalations
 from cleanroom.control.registry.store import TaskRegistryStore
 from cleanroom.control.registry.types import TaskSpec
@@ -33,7 +34,7 @@ class OperatorContext:
     which uses it to invoke run_loop(..., proposer=ctx.proposer, ...).
     """
 
-    def __init__(self, *, proposer, benchmark, pore, logclient):
+    def __init__(self, *, proposer, benchmark, pore, logclient, actions=None):
         """Initialize context with required components.
 
         Args:
@@ -41,11 +42,16 @@ class OperatorContext:
             benchmark: Object with run_benchmark, check_correctness, is_within_noise methods.
             pore: Object with evaluate(candidate) -> PoreResult method.
             logclient: LogClient protocol for write_experiment, write_crossing, etc.
+            actions: Optional action adapter (apply/rollback) injected into run_loop.
+                None -> run_loop uses the builtin cleanroom.actions (Postgres
+                index/guc). Epic #8 domain tasks (kernel/quant/bio) carry their own
+                adapter here so the same loop drives a different action space.
         """
         self.proposer = proposer
         self.benchmark = benchmark
         self.pore = pore
         self.logclient = logclient
+        self.actions = actions
 
 
 class Operator:
@@ -239,6 +245,23 @@ class Operator:
             "constraints": task_spec.constraints,
             "default_model": task_spec.default_model,
         }
+
+        # Epic #8: if this is a domain task (kernel/quant/bio), bind its judge +
+        # action adapter + proposer and seed a fresh domain env into task_spec["conn"]
+        # so the SAME loop drives a different action space through this unchanged
+        # dispatch path. We keep ctx.logclient so experiments still land in the real
+        # governance log; only the swappable components change. Non-domain (Postgres)
+        # tasks resolve to None and use the injected ctx + builtin cleanroom.actions.
+        bundle = resolve_domain(task_spec)
+        if bundle is not None:
+            task_spec_dict["conn"] = bundle.make_env()
+            ctx = OperatorContext(
+                proposer=bundle.proposer,
+                benchmark=bundle.benchmark,
+                pore=bundle.pore,
+                logclient=ctx.logclient,
+                actions=bundle.actions,
+            )
 
         # Launch background thread (fire-and-return)
         dispatch_background_run(
