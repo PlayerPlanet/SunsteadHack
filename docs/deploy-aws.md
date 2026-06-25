@@ -106,7 +106,7 @@ so a code merge can't silently mutate infrastructure.
 2. Set `var.container_image = "<ecr_repository_url>:latest"` so force-new-deployment rolls the new image.
 3. In GitHub repo settings:
    - **Secrets:** `AWS_DEPLOY_ROLE_ARN` (= `github_deploy_role_arn`), `APP_DSN`, `ACM_CERTIFICATE_ARN`.
-   - **Variables:** `AWS_REGION`, `ECR_REPOSITORY` (repo name), `ECS_CLUSTER`, `WEB_SERVICE`, `WORKER_SERVICE`, `DOMAIN_NAME`, `CONTAINER_IMAGE`.
+   - **Variables:** `AWS_REGION`, `ECR_REPOSITORY` (repo name), `ECS_CLUSTER`, `WEB_SERVICE`, `WORKER_SERVICE`, `DOMAIN_NAME`, `CONTAINER_IMAGE`, and **`DEPLOY_ENABLED=true`** (the deploy job stays skipped until this is set — so merges to main don't fail before AWS exists).
    - Add a `production` **Environment** with required reviewers to gate deploys.
 4. For shared state, configure a remote tf backend (S3+DynamoDB) before relying on `infra.yml`.
 
