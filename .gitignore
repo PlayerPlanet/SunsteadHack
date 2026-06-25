@@ -41,3 +41,5 @@ sunsteadcontrol/agentcore/.cli/
 sunsteadcontrol/agentcore/cdk/node_modules/
 sunsteadcontrol/**/__pycache__/
 .env
+.DS_Store
+*.pyc
