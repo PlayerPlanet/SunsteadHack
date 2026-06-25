@@ -29,3 +29,7 @@ artifacts/
 
 # Webhook inbox JSON event files (kept via .gitkeep)
 cells/agent-escalation-log/inbox/*.json
+
+# Local secret material written by scripts/provision_control_roles.py — never commit
+*.secret
+app_dsn.secret
