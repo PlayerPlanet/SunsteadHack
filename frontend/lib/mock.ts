@@ -81,6 +81,22 @@ export const mockExperiments = [
   { n: 12, p99: 25.3, decision: "keep", action: "CREATE INDEX ON orders(status) WHERE status = 'pending'" },
 ];
 
+// Curve format matching tool_read_curve output (handoff spec field names)
+export const mockCurve = [
+  { n: 1, candidate_p99: 58.4, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "index", params: { table: "orders", columns: ["user_id"] } }, correctness_ok: true },
+  { n: 2, candidate_p99: 48.1, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "guc", params: { name: "work_mem", value: "64MB" } }, correctness_ok: true },
+  { n: 3, candidate_p99: 49.2, baseline_p99: 58.4, decision: "reject", within_noise: true, candidate: { type: "guc", params: { name: "jit", value: "off" } }, correctness_ok: true },
+  { n: 4, candidate_p99: 41.7, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "index", params: { table: "orders", columns: ["created_at"] } }, correctness_ok: true },
+  { n: 5, candidate_p99: 42.1, baseline_p99: 58.4, decision: "reject", within_noise: true, candidate: { type: "guc", params: { name: "random_page_cost", value: "1.5" } }, correctness_ok: true },
+  { n: 6, candidate_p99: 38.2, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "index", params: { table: "orders", columns: ["user_id", "created_at"] } }, correctness_ok: true },
+  { n: 7, candidate_p99: 38.2, baseline_p99: 58.4, decision: "reject", within_noise: false, candidate: { type: "index_drop", params: { name: "orders_pkey" } }, correctness_ok: false },
+  { n: 8, candidate_p99: 33.9, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "guc", params: { name: "effective_cache_size", value: "1GB" } }, correctness_ok: true },
+  { n: 9, candidate_p99: 34.5, baseline_p99: 58.4, decision: "reject", within_noise: true, candidate: { type: "guc", params: { name: "enable_hashjoin", value: "off" } }, correctness_ok: true },
+  { n: 10, candidate_p99: 29.4, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "index", params: { table: "orders", columns: ["status"], where: "status = 'pending'" } }, correctness_ok: true },
+  { n: 11, candidate_p99: 29.8, baseline_p99: 58.4, decision: "reject", within_noise: true, candidate: { type: "guc", params: { name: "max_parallel_workers", value: "4" } }, correctness_ok: true },
+  { n: 12, candidate_p99: 25.3, baseline_p99: 58.4, decision: "keep", within_noise: false, candidate: { type: "index", params: { table: "orders", columns: ["status"], where: "status = 'pending'" } }, correctness_ok: true },
+];
+
 export const mockEscalations = [
   {
     id: 1,

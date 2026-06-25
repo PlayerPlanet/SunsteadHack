@@ -1,38 +1,49 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { mockRuns, mockExperiments } from "@/lib/mock";
+import { cp, hasControlPlane } from "@/lib/api";
+import { mockRuns, mockCurve } from "@/lib/mock";
 
+// GET /api/runs                   — list runs
+// GET /api/runs?task_id=X         — curve for task
+// POST /api/runs                  — dispatch a new run
 export async function GET(req: Request) {
-  const db = getDb();
   const { searchParams } = new URL(req.url);
   const taskId = searchParams.get("task_id");
 
-  if (!db) {
-    if (taskId) return NextResponse.json({ experiments: mockExperiments });
+  if (!hasControlPlane()) {
+    if (taskId) return NextResponse.json({ curve: mockCurve });
     return NextResponse.json({ runs: mockRuns });
   }
 
-  if (taskId) {
-    const experiments = await db`
-      SELECT
-        ROW_NUMBER() OVER (ORDER BY created_at) AS n,
-        candidate_p99 AS p99,
-        decision,
-        candidate->>'type' AS action
-      FROM experiment
-      WHERE task_id = ${taskId}
-      ORDER BY created_at
-    `;
-    return NextResponse.json({
-      experiments: experiments.map((r) => ({
-        n: Number(r.n),
-        p99: r.p99 ? Number(r.p99) : null,
-        decision: r.decision,
-        action: r.action,
-      })),
-    });
+  try {
+    if (taskId) {
+      const curve = await cp<unknown[]>(`/tasks/${taskId}/curve`);
+      // Normalize: add sequential index, keep all handoff fields
+      const normalized = (curve ?? []).map((row: any, i: number) => ({ n: i + 1, ...row }));
+      return NextResponse.json({ curve: normalized });
+    }
+
+    const runs = await cp<unknown[]>("/runs");
+    return NextResponse.json({ runs: runs ?? [] });
+  } catch {
+    if (taskId) return NextResponse.json({ curve: mockCurve });
+    return NextResponse.json({ runs: mockRuns });
+  }
+}
+
+export async function POST(req: Request) {
+  const body = await req.json();
+
+  if (!hasControlPlane()) {
+    return NextResponse.json({ run_id: `mock-run-${Date.now()}` });
   }
 
-  const runs = await db`SELECT * FROM run ORDER BY started_at DESC LIMIT 20`;
-  return NextResponse.json({ runs });
+  try {
+    const data = await cp<{ run_id: string }>("/runs", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    return NextResponse.json(data);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { cp, hasControlPlane } from "@/lib/api";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { decision, rationale } = await req.json();
@@ -7,15 +7,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "decision must be approve or reject" }, { status: 400 });
   }
 
-  const db = getDb();
-  if (!db) {
-    return NextResponse.json({ ok: true, mock: true });
+  if (!hasControlPlane()) return NextResponse.json({ ok: true, mock: true });
+
+  try {
+    await cp(`/escalations/${params.id}/adjudicate`, {
+      method: "POST",
+      body: JSON.stringify({ decision, rationale }),
+    });
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  await db`
-    INSERT INTO judgment (crossing_id, judge, judge_kind, decision, rationale)
-    VALUES (${params.id}, 'operator', 'human', ${decision}, ${rationale ?? null})
-  `;
-
-  return NextResponse.json({ ok: true });
 }
