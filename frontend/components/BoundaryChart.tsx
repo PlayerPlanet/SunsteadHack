@@ -6,12 +6,14 @@ import {
 
 type Point = { drift: number; escalation_rate: number; correctness: number; n: number };
 
-export default function BoundaryChart({ data }: { data: Point[] }) {
-  const boundary = data.find((d) => d.escalation_rate > 0 && d.correctness < 90)?.drift ?? 0.6;
+export default function BoundaryChart({ data }: { data?: Point[] }) {
+  // Tolerate a non-array (e.g. an error payload) so a failed fetch renders empty, not a crash.
+  const rows = Array.isArray(data) ? data : [];
+  const boundary = rows.find((d) => d.escalation_rate > 0 && d.correctness < 90)?.drift ?? 0.6;
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+      <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
         <XAxis
           dataKey="drift"

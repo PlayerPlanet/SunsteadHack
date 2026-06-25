@@ -70,7 +70,7 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="p-4">
-              {boundary ? (
+              {Array.isArray(boundary?.spatial) ? (
                 <BoundaryChart data={boundary.spatial} />
               ) : (
                 <div className="h-72 flex items-center justify-center text-gray-300 text-sm">Loading…</div>
