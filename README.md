@@ -102,6 +102,82 @@ CLEANROOM_PG_DSN='postgres://…?sslmode=require' python scripts/run_phase1_curv
 
 ---
 
+## Marketplace setup
+
+The operator commands ship as a Claude Code plugin (`sunstead-control`) served from a
+plugin **marketplace** defined in this repo. A marketplace is just a manifest that lists
+one or more installable plugins; Claude Code reads it to discover and install them.
+
+### 1. The marketplace manifest
+
+Create `.claude-plugin/marketplace.json` at the repo root. It registers the `sunstead`
+marketplace and points at the bundled plugin in [`plugin/`](plugin/):
+
+```json
+{
+  "name": "sunstead",
+  "owner": { "name": "SunsteadHack Team" },
+  "metadata": {
+    "description": "SunsteadHack plugins — operate the self-optimizing Data-Agent control plane from Claude.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "sunstead-control",
+      "source": "./plugin",
+      "description": "Operate the SunsteadHack autoresearch control plane — dispatch runs, watch p99/cost curves, read the boundary instrument, and adjudicate escalations. Slash commands: /dispatch /runs /escalations /adjudicate /curve /boundary.",
+      "version": "1.0.0",
+      "author": { "name": "SunsteadHack Team" }
+    }
+  ]
+}
+```
+
+The `source` is repo-relative, so the plugin definition in
+[`plugin/.claude-plugin/plugin.json`](plugin/.claude-plugin/plugin.json) is resolved
+from the marketplace root.
+
+### 2. Register the marketplace in Claude Code
+
+From a Claude Code session, add the marketplace by path (local checkout) or by repo:
+
+```
+/plugin marketplace add .                       # local checkout (repo root)
+/plugin marketplace add <owner>/sunsteadhack    # or by GitHub repo
+```
+
+Verify it resolved:
+
+```
+/plugin marketplace list
+```
+
+### 3. Install and enable the plugin
+
+```
+/plugin install sunstead-control@sunstead
+```
+
+This makes the operator slash commands available:
+`/dispatch /runs /escalations /adjudicate /curve /boundary`.
+
+### 4. Wire up the backend
+
+The plugin's MCP server (`cleanroom.control.server.mcp`) needs the repo on `PYTHONPATH`
+and, for shared state across sessions, an Aiven Postgres DSN. Without a DSN it falls back
+to in-memory storage (state is lost on MCP restart).
+
+```bash
+export PYTHONPATH=.                                                  # repo root
+export CLEANROOM_PG_DSN="postgresql://user:pass@host:5432/db?sslmode=require"
+```
+
+See [`plugin/README.md`](plugin/README.md) for the full command reference, the
+in-memory vs. persistent backend selection, and the governance/legitimacy boundary
+(what the plugin is and isn't allowed to do).
+
+---
+
 ## Repository map
 
 | Path | Purpose |
