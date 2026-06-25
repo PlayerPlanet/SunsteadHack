@@ -20,10 +20,40 @@ import uuid
 from cleanroom.control.dispatcher.executor import dispatch_background_run
 from cleanroom.control.dispatcher.state import RunStatus
 from cleanroom.control.dispatcher.store_interface import SwappableRunStore
+from cleanroom.control.domains import resolve_domain
 from cleanroom.control.pore_boundary.escalation import pending_escalations
 from cleanroom.control.registry.store import TaskRegistryStore
 from cleanroom.control.registry.types import TaskSpec
 from cleanroom.types import Candidate
+
+
+def bind_domain(task_spec, task_spec_dict: dict, ctx: "OperatorContext"):
+    """Bind an epic-#8 domain bundle to a run, if `task_spec` is a domain task.
+
+    For kernel/quant/bio tasks, swap in the domain's proposer/benchmark/pore/actions
+    and seed a fresh domain env into task_spec_dict["conn"], so the SAME loop drives a
+    different action space. ctx.logclient is preserved so experiments still land in the
+    real governance log. Non-domain (Postgres) tasks return the inputs unchanged.
+
+    Shared by both dispatch paths: dispatch_run (thread mode) and the queue worker
+    (cleanroom.control.worker), so a domain task behaves identically whichever runs it.
+
+    Returns:
+        (task_spec_dict, ctx) — possibly-rebound copies.
+    """
+    bundle = resolve_domain(task_spec)
+    if bundle is None:
+        return task_spec_dict, ctx
+    task_spec_dict = dict(task_spec_dict)
+    task_spec_dict["conn"] = bundle.make_env()
+    ctx = OperatorContext(
+        proposer=bundle.proposer,
+        benchmark=bundle.benchmark,
+        pore=bundle.pore,
+        logclient=ctx.logclient,
+        actions=bundle.actions,
+    )
+    return task_spec_dict, ctx
 
 
 class OperatorContext:
@@ -33,7 +63,7 @@ class OperatorContext:
     which uses it to invoke run_loop(..., proposer=ctx.proposer, ...).
     """
 
-    def __init__(self, *, proposer, benchmark, pore, logclient):
+    def __init__(self, *, proposer, benchmark, pore, logclient, actions=None):
         """Initialize context with required components.
 
         Args:
@@ -41,11 +71,16 @@ class OperatorContext:
             benchmark: Object with run_benchmark, check_correctness, is_within_noise methods.
             pore: Object with evaluate(candidate) -> PoreResult method.
             logclient: LogClient protocol for write_experiment, write_crossing, etc.
+            actions: Optional action adapter (apply/rollback) injected into run_loop.
+                None -> run_loop uses the builtin cleanroom.actions (Postgres
+                index/guc). Epic #8 domain tasks (kernel/quant/bio) carry their own
+                adapter here so the same loop drives a different action space.
         """
         self.proposer = proposer
         self.benchmark = benchmark
         self.pore = pore
         self.logclient = logclient
+        self.actions = actions
 
 
 class Operator:
@@ -251,12 +286,17 @@ class Operator:
             "default_model": task_spec.default_model,
         }
 
-        # Queue mode: leave the run 'queued' for a separate worker to claim. The web
-        # tier returns instantly and never runs the loop itself.
+        # Queue mode: leave the run 'queued' for a separate worker to claim. Domain
+        # binding + env creation happen in the worker (cleanroom.control.worker), not
+        # in this stateless web tier — so we return before touching resolve_domain.
         if mode == "queue":
             return run_id
 
-        # Thread mode: run it now in a background daemon thread (fire-and-return).
+        # Thread mode: bind the epic-#8 domain bundle (kernel/quant/bio) if applicable,
+        # then run inline in a background daemon thread (fire-and-return).
+        task_spec_dict, ctx = bind_domain(task_spec, task_spec_dict, ctx)
+
+        # Launch background thread (fire-and-return)
         dispatch_background_run(
             task_spec_dict,
             run_id,

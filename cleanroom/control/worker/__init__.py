@@ -18,6 +18,7 @@ import threading
 import time
 
 from cleanroom.control.dispatcher.executor import _run_loop_worker
+from cleanroom.control.ops import bind_domain
 
 
 def _now_iso() -> str:
@@ -57,11 +58,14 @@ def run_once(*, run_store, registry, ctx_factory) -> str | None:
         return run_id
 
     ctx = ctx_factory()
+    # Bind the epic-#8 domain bundle here (the web tier deferred it for queue mode), so
+    # a kernel/quant/bio run behaves identically whether a thread or this worker runs it.
+    task_spec_dict, ctx = bind_domain(task_spec, _task_spec_to_dict(task_spec), ctx)
     cancel_event = threading.Event()
     # _run_loop_worker re-stamps state='running'+started_at, then runs the loop and
     # transitions to done/failed/cancelled. Synchronous: the worker IS the executor.
     _run_loop_worker(
-        _task_spec_to_dict(task_spec),
+        task_spec_dict,
         run_id,
         claimed.model,
         claimed.iterations_target,

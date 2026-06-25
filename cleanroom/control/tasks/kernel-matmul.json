@@ -1,0 +1,10 @@
+{
+  "task_id": "kernel-matmul",
+  "objective": "Minimize p99 wall-clock latency of a 32x32 matrix-multiply kernel. Only numerically-correct kernels (allclose vs. the frozen reference output) are timed; a fast-but-wrong kernel is never kept. Issue #9.",
+  "workload_id": "kernel_matmul_32",
+  "action_space": ["kernel"],
+  "db_ref": "in-process:kernel",
+  "constraints": {"rtol": 1e-05, "atol": 1e-08},
+  "default_model": "claude-sonnet-4-6",
+  "state": "active"
+}
