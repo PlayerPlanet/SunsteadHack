@@ -1,0 +1,92 @@
+{
+  "part_a_postgres_membrane_on_foreign_domains": {
+    "kernel": {
+      "safe": {
+        "membrane_decision": "abstain",
+        "ood": true,
+        "risk_class": "unknown",
+        "reason": "ood-unrecognised-lever"
+      },
+      "violation": {
+        "membrane_decision": "abstain",
+        "ood": true,
+        "risk_class": "unknown",
+        "reason": "ood-unrecognised-lever"
+      }
+    },
+    "quant": {
+      "safe": {
+        "membrane_decision": "abstain",
+        "ood": true,
+        "risk_class": "unknown",
+        "reason": "ood-unrecognised-lever"
+      },
+      "violation": {
+        "membrane_decision": "abstain",
+        "ood": true,
+        "risk_class": "unknown",
+        "reason": "ood-unrecognised-lever"
+      }
+    },
+    "bio": {
+      "safe": {
+        "membrane_decision": "abstain",
+        "ood": true,
+        "risk_class": "unknown",
+        "reason": "ood-unrecognised-lever"
+      },
+      "violation": {
+        "membrane_decision": "abstain",
+        "ood": true,
+        "risk_class": "unknown",
+        "reason": "ood-unrecognised-lever"
+      }
+    }
+  },
+  "part_a_all_abstained": true,
+  "part_b_portable_gate_with_domain_prior": {
+    "kernel": {
+      "safe": {
+        "portable_decision": "auto_clear",
+        "domain_judge_rejects": false,
+        "risk": "safe-tuning",
+        "matches_domain_judge": true
+      },
+      "violation": {
+        "portable_decision": "escalate",
+        "domain_judge_rejects": true,
+        "risk": "unknown/unsafe kernel strategy",
+        "matches_domain_judge": true
+      }
+    },
+    "quant": {
+      "safe": {
+        "portable_decision": "auto_clear",
+        "domain_judge_rejects": false,
+        "risk": "safe-tuning",
+        "matches_domain_judge": true
+      },
+      "violation": {
+        "portable_decision": "escalate",
+        "domain_judge_rejects": true,
+        "risk": "lookahead (lookback<=0)",
+        "matches_domain_judge": true
+      }
+    },
+    "bio": {
+      "safe": {
+        "portable_decision": "auto_clear",
+        "domain_judge_rejects": false,
+        "risk": "safe-tuning",
+        "matches_domain_judge": true
+      },
+      "violation": {
+        "portable_decision": "escalate",
+        "domain_judge_rejects": true,
+        "risk": "train-on-test contamination",
+        "matches_domain_judge": true
+      }
+    }
+  },
+  "part_b_all_match_domain_judge": true
+}
