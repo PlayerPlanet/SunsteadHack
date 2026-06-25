@@ -1,40 +1,55 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
 import { cp, hasControlPlane } from "@/lib/api";
 import { mockRuns, mockCurve } from "@/lib/mock";
 
-// GET /api/runs                   — list runs
-// GET /api/runs?task_id=X         — curve for task
-// POST /api/runs                  — dispatch a new run
+// Reads → pg → Aiven sunstead_control (BFF design):
+//   GET /api/runs                — list runs       (run table)
+//   GET /api/runs?task_id=X       — descent curve   (experiment table)
+// Action → MCP → AgentCore (not yet deployed):
+//   POST /api/runs                — dispatch a run
+export const runtime = "nodejs";
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const taskId = searchParams.get("task_id");
+  const sql = getDb();
 
-  if (!hasControlPlane()) {
-    if (taskId) return NextResponse.json({ curve: mockCurve });
-    return NextResponse.json({ runs: mockRuns });
-  }
+  if (!sql) return NextResponse.json(taskId ? { curve: mockCurve } : { runs: mockRuns });
 
   try {
     if (taskId) {
-      const curve = await cp<unknown[]>(`/tasks/${taskId}/curve`);
-      // Normalize: add sequential index, keep all handoff fields
-      const normalized = (curve ?? []).map((row: any, i: number) => ({ n: i + 1, ...row }));
-      return NextResponse.json({ curve: normalized });
+      const rows = await sql`
+        SELECT id, task_id, candidate, baseline_p99, candidate_p99, cost_estimate,
+               correctness_ok, within_noise, decision, created_at
+        FROM experiment
+        WHERE task_id = ${taskId}
+        ORDER BY id`;
+      const curve = rows.map((r: any, i: number) => ({ n: i + 1, ...r }));
+      return NextResponse.json({ curve });
     }
 
-    const runs = await cp<unknown[]>("/runs");
-    return NextResponse.json({ runs: runs ?? [] });
+    const runs = await sql`
+      SELECT run_id, task_id, model, state, iterations_done, iterations_target,
+             best_p99, started_at, ended_at
+      FROM run
+      ORDER BY started_at DESC NULLS LAST`;
+    return NextResponse.json({ runs });
   } catch {
-    if (taskId) return NextResponse.json({ curve: mockCurve });
-    return NextResponse.json({ runs: mockRuns });
+    return NextResponse.json(taskId ? { curve: mockCurve } : { runs: mockRuns });
   }
 }
 
 export async function POST(req: Request) {
   const body = await req.json();
 
+  // Dispatch is an action → MCP → AgentCore Gateway. Until the runtime is deployed
+  // there is no edge to call, so we surface that explicitly rather than faking a run.
   if (!hasControlPlane()) {
-    return NextResponse.json({ run_id: `mock-run-${Date.now()}` });
+    return NextResponse.json(
+      { error: "Dispatch is unavailable until the AgentCore control-plane runtime is deployed." },
+      { status: 503 }
+    );
   }
 
   try {

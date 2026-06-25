@@ -88,7 +88,7 @@ export default function Dashboard() {
               {runs.slice(0, 6).map((r) => (
                 <div key={r.run_id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    r.state === "running" ? "bg-emerald-500" : r.state === "completed" ? "bg-gray-300" : "bg-red-400"
+                    r.state === "running" ? "bg-emerald-500" : (r.state === "done" || r.state === "completed") ? "bg-gray-300" : "bg-red-400"
                   }`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-800 font-medium truncate">{r.task_id}</p>
