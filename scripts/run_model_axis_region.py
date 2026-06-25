@@ -41,10 +41,34 @@ MODEL_LADDER = [
     {"label": "haiku-4.5", "backend": "anthropic", "model": "claude-haiku-4-5"},
     {"label": "sonnet-4.6", "backend": "anthropic", "model": "claude-sonnet-4-6"},
     {"label": "opus-4.5", "backend": "anthropic", "model": "claude-opus-4-5"},
+    {"label": "opus-4.8", "backend": "anthropic", "model": "claude-opus-4-8"},
     {"label": "minimax-m2.5", "backend": "minimax", "model": "MiniMax-M2.5"},
     {"label": "minimax-m3", "backend": "minimax", "model": "MiniMax-M3"},
 ]
 HUMAN_MODEL = "claude-sonnet-4-6"  # the fixed accountable judge for every run
+
+
+def _load_dotenv() -> None:
+    """Load KEY=VALUE pairs from the nearest .env into os.environ (without clobbering
+    already-set vars, and without printing any values). Walks up from cwd and this
+    script so a .env in the main repo root is found from inside a worktree."""
+    seen = set()
+    starts = [Path.cwd(), Path(__file__).resolve().parent]
+    for start in starts:
+        for d in [start, *start.parents]:
+            env = d / ".env"
+            if env in seen or not env.is_file():
+                seen.add(env)
+                continue
+            seen.add(env)
+            for line in env.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                key, val = key.strip(), val.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = val
 
 
 def _client(backend: str):
@@ -67,8 +91,11 @@ def run_one_model(spec: dict, styles: list[str], iterations: int, human_client) 
     """Run the full probe for one proposer model; return its region reading or None."""
     try:
         prop_client = _client(spec["backend"])
-        proposer = HaikuOptimizerAgent(model=spec["model"], client=prop_client)
-        # Smoke one call so a missing key / unsupported tool-use fails fast & clearly.
+        # Reasoning models (e.g. MiniMax) emit a thinking block before the tool call, so
+        # 512 tokens is too small — the thinking eats the budget and no propose_change
+        # tool_use is emitted. Give non-Anthropic backends room for thinking + the call.
+        max_tokens = 4096 if spec["backend"] != "anthropic" else 512
+        proposer = HaikuOptimizerAgent(model=spec["model"], client=prop_client, max_tokens=max_tokens)
         human = SonnetHumanAgent(model=HUMAN_MODEL, client=human_client)
     except Exception as e:  # noqa: BLE001
         print(f"[skip] {spec['label']}: {e}", file=sys.stderr)
@@ -109,6 +136,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", default="artifacts/model_axis")
     ap.add_argument("--workers", type=int, default=3, help="models run concurrently.")
     args = ap.parse_args(argv)
+    _load_dotenv()  # pull MINIMAX_API_KEY / MINIMAX_BASE_URL from .env if present
 
     labels = [m["label"] for m in MODEL_LADDER] if args.models == "all" else \
         [s.strip() for s in args.models.split(",") if s.strip()]

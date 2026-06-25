@@ -23,8 +23,12 @@ HONESTY = (
     "(claude-sonnet-4-6) held identical. So curve separation is attributable to the "
     "proposer's choices — which levers it reaches for as the world drifts — not to any "
     "change in the gate. This is the spatial escalation curve: a PROXY / lower bound of "
-    "the legitimacy boundary, not the true epistemic edge. Per-model n is modest; read "
-    "the trend, not the third digit."
+    "the legitimacy boundary, not the true epistemic edge. CAVEATS: (1) the proposer is a "
+    "real LLM sampled without a fixed seed, so exact percentages vary run-to-run — read "
+    "the TREND and the ordering, not the third digit; (2) per-model n is modest (≤60 "
+    "steps), and the MiniMax reasoning models occasionally emit a thinking block without "
+    "the tool call, so a drift style was dropped for them (n=40, still spanning drift "
+    "0→1). The qualitative separation between proposers is the result, not the magnitudes."
 )
 
 
