@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import UserMenu from "@/components/UserMenu";
 
 const links = [
   { href: "/", label: "Dashboard" },
@@ -29,9 +30,12 @@ export default function Nav() {
           </Link>
         ))}
       </div>
-      <div className="ml-auto flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-xs text-neutral-500">Live</span>
+      <div className="ml-auto flex items-center gap-4">
+        <span className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs text-neutral-500">Live</span>
+        </span>
+        <UserMenu />
       </div>
     </nav>
   );

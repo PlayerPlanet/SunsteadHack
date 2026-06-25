@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { AlertTriangle, CheckCircle, XCircle, Clock, Lock } from "lucide-react";
+import { roleFromGroups, canAdjudicate } from "@/lib/roles";
 
 type Escalation = {
   id: number;
@@ -35,9 +37,14 @@ function timeAgo(iso: string) {
 }
 
 export default function EscalationsPage() {
+  const { data: session } = useSession();
+  const role = roleFromGroups(session?.groups);
+  const mayAdjudicate = canAdjudicate(role);
+
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [adjudicating, setAdjudicating] = useState<number | null>(null);
   const [rationale, setRationale] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const load = () =>
     fetch("/api/escalations").then((r) => r.json()).then((d) => setEscalations(d.escalations ?? []));
@@ -45,11 +52,19 @@ export default function EscalationsPage() {
   useEffect(() => { load(); }, []);
 
   async function adjudicate(id: number, decision: "approve" | "reject") {
-    await fetch(`/api/escalations/${id}/adjudicate`, {
+    setError(null);
+    const res = await fetch(`/api/escalations/${id}/adjudicate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ decision, rationale }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      // The control plane refused (scope/SET ROLE) — surface it verbatim; this is the
+      // truth boundary talking, not a UI bug.
+      setError(body.error ?? `adjudicate failed (${res.status})`);
+      return;
+    }
     setAdjudicating(null);
     setRationale("");
     load();
@@ -74,6 +89,20 @@ export default function EscalationsPage() {
         )}
       </div>
 
+      {!mayAdjudicate && (
+        <div className="flex items-center gap-2 text-xs text-neutral-400 bg-white/5 border border-border rounded-lg px-4 py-3">
+          <Lock className="w-3.5 h-3.5 text-neutral-500" />
+          View only — adjudicating requires the operator role. Ask an operator to add you to
+          the <span className="font-mono text-neutral-300">sunstead-operators</span> group.
+        </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+          {error}
+        </div>
+      )}
+
       {/* Pending */}
       {pending.length > 0 && (
         <div className="space-y-4">
@@ -95,7 +124,7 @@ export default function EscalationsPage() {
                     <p className="text-xs text-neutral-400 mt-2 leading-relaxed">{e.rationale}</p>
                   )}
 
-                  {adjudicating === e.id ? (
+                  {mayAdjudicate && (adjudicating === e.id ? (
                     <div className="mt-4 space-y-3">
                       <textarea
                         className="w-full bg-surface border border-border rounded p-3 text-sm text-neutral-200 placeholder-neutral-600 resize-none focus:outline-none focus:border-neutral-500"
@@ -132,7 +161,7 @@ export default function EscalationsPage() {
                     >
                       Adjudicate →
                     </button>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
