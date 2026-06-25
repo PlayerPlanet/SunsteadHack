@@ -1,0 +1,19 @@
+{
+  "name": "sunstead",
+  "owner": {
+    "name": "SunsteadHack Team"
+  },
+  "metadata": {
+    "description": "SunsteadHack plugins — operate the self-optimizing Data-Agent control plane from Claude.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "sunstead-control",
+      "source": "./plugin",
+      "description": "Operate the SunsteadHack autoresearch control plane — dispatch runs, watch p99/cost curves, read the boundary instrument, and adjudicate escalations. Slash commands: /dispatch /runs /escalations /adjudicate /curve /boundary.",
+      "version": "1.0.0",
+      "author": { "name": "SunsteadHack Team" }
+    }
+  ]
+}

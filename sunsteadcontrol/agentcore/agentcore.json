@@ -18,7 +18,11 @@
       "instrumentation": {
         "enableOtel": false
       },
-      "protocol": "MCP"
+      "protocol": "MCP",
+      "envVars": [
+        { "name": "CLEANROOM_PG_SECRET_ID", "value": "arn:aws:secretsmanager:us-east-1:528081867249:secret:sunstead/control/app-dsn-YnYkc4" },
+        { "name": "AWS_REGION", "value": "us-east-1" }
+      ]
     }
   ],
   "memories": [],
