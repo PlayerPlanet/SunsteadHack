@@ -12,7 +12,7 @@
       "name": "sunstead-control",
       "source": "./plugin",
       "description": "Operate the SunsteadHack autoresearch control plane — dispatch runs, watch p99/cost curves, read the boundary instrument, and adjudicate escalations. Slash commands: /dispatch /runs /escalations /adjudicate /curve /boundary.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": { "name": "SunsteadHack Team" }
     }
   ]
