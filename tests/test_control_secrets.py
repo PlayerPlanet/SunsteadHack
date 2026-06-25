@@ -72,5 +72,12 @@ def test_external_migrations_true_with_secret(monkeypatch):
     assert wiring._external_migrations() is True
 
 
+def test_secret_value_is_stripped(monkeypatch):
+    calls = []
+    _install_fake_boto3(monkeypatch, _SECRET_DSN + "\n", calls)  # trailing newline from a file
+    monkeypatch.setenv("CLEANROOM_PG_SECRET_ID", "x")
+    assert wiring.data_dsn() == _SECRET_DSN
+
+
 def test_no_dsn_anywhere_is_none(monkeypatch):
     assert wiring.data_dsn() is None

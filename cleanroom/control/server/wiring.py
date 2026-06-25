@@ -66,7 +66,10 @@ def _secret_dsn() -> str | None:
 
         kwargs = {"region_name": os.environ["AWS_REGION"]} if os.environ.get("AWS_REGION") else {}
         resp = boto3.client("secretsmanager", **kwargs).get_secret_value(SecretId=sid)
-        _secret_dsn_cache = resp.get("SecretString")
+        val = resp.get("SecretString")
+        # Strip — a DSN stored from a file often carries a trailing newline, which
+        # would otherwise break the psycopg connection string.
+        _secret_dsn_cache = val.strip() if val else val
     _secret_dsn_fetched = True
     return _secret_dsn_cache
 
