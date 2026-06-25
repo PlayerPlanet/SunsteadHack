@@ -1,6 +1,6 @@
 {
   "name": "sunstead-control",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Operate the SunsteadHack autoresearch control plane from Claude — dispatch runs, watch curves, adjudicate escalations, and benchmark agents",
   "author": { "name": "SunsteadHack Team" }
 }
