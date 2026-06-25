@@ -1,0 +1,171 @@
+<title>Live Run — Autoresearch Loop on a Real Database</title>
+<style>
+  :root {
+    --ground: #E9EEEF;
+    --paper: #F7F9FA;
+    --substrate: #0B151B;
+    --substrate-2: #0F1D25;
+    --ink: #0F1A21;
+    --muted: #56666E;
+    --line: #D3DCDF;
+    --line-soft: #E2E9EB;
+    --teal: #0C8C86;
+    --teal-bright: #1BBBAF;
+    --amber: #D2731F;
+    --amber-soft: #F0E2D2;
+    --teal-soft: #DCEEEC;
+    --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 28px; }
+  .eyebrow { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--teal); margin: 0 0 12px; }
+
+  /* hero panel */
+  .panel {
+    background: radial-gradient(120% 90% at 85% -15%, rgba(27,187,175,0.14), transparent 55%), linear-gradient(180deg, var(--substrate), var(--substrate-2));
+    color: #DBE6E8; padding: 52px 0 44px;
+  }
+  .panel .eyebrow { color: var(--teal-bright); }
+  .panel h1 { font-size: clamp(1.9rem, 4.6vw, 3rem); line-height: 1.05; letter-spacing: -0.03em; font-weight: 800; margin: 0 0 14px; text-wrap: balance; max-width: 20ch; }
+  .panel .sub { color: #A7BCC0; max-width: 58ch; margin: 0 0 32px; font-size: 1.06rem; }
+  .panel .sub b { color: #EAF2F3; font-weight: 600; }
+
+  /* chart */
+  .chartcard { background: rgba(255,255,255,0.04); border: 1px solid #20323b; border-radius: 14px; padding: 22px 20px 14px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .chart-head .yl { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: #8499a0; }
+  .chart-head .delta { font-family: var(--mono); font-size: 0.95rem; color: var(--teal-bright); font-weight: 600; font-variant-numeric: tabular-nums; }
+  svg.curve { width: 100%; height: auto; display: block; }
+  svg.curve text { font-family: var(--mono); fill: #8499a0; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 6px; padding: 8px 4px 2px; font-size: 0.8rem; color: #9fb4ba; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 22px; height: 0; border-top: 3px solid var(--teal-bright); display: inline-block; }
+  .swatch.dot { width: 11px; height: 11px; border: 2px solid var(--amber); border-radius: 50%; border-top: 2px solid var(--amber); }
+
+  /* body */
+  section { padding: 44px 0; }
+  h2 { font-size: 1.4rem; letter-spacing: -0.018em; margin: 0 0 18px; }
+  .ledger { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .ledger th, .ledger td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+  .ledger thead th { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); background: #EEF2F3; }
+  .ledger tbody tr:last-child td { border-bottom: none; }
+  .ledger td.p99 { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .ledger code { font-family: var(--mono); font-size: 0.84rem; background: #E7EDEE; padding: 1px 6px; border-radius: 5px; }
+  .verdict { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+  .verdict.keep { background: var(--teal-soft); color: #075c58; }
+  .verdict.reject { background: var(--amber-soft); color: #8a4413; }
+  .ledger tr.rejected td { color: var(--muted); }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 28px; }
+  .stat { background: var(--paper); border: 1px solid var(--line); border-radius: 11px; padding: 16px 18px; }
+  .stat .v { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.45rem; font-weight: 600; color: var(--teal); letter-spacing: -0.01em; }
+  .stat .l { font-size: 0.78rem; color: var(--muted); margin-top: 5px; line-height: 1.35; }
+
+  .proves { margin-top: 30px; background: var(--teal-soft); border: 1px solid #BCE0DB; border-left: 4px solid var(--teal); border-radius: 0 10px 10px 0; padding: 20px 24px; }
+  .proves .tag { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--teal); display: block; margin-bottom: 8px; }
+  .proves p { margin: 0; font-size: 1.0rem; }
+  .proves b { color: #075c58; }
+
+  .foot { font-family: var(--mono); font-size: 0.76rem; color: var(--muted); padding: 26px 0 40px; border-top: 1px solid var(--line); margin-top: 8px; line-height: 1.7; }
+  .foot b { color: var(--ink); }
+
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<header class="panel">
+  <div class="wrap">
+    <p class="eyebrow">Live run &middot; 2026-06-25 &middot; real Claude container + real Postgres</p>
+    <h1>It optimized a real database &mdash; and refused to keep the win that wasn't real.</h1>
+    <p class="sub">A 3-million-row Join-Order workload. Each index below was proposed by a <b>real Claude Haiku container</b> reading the DB over read-only MCP, applied with a real <b>CREATE INDEX</b>, then measured by the frozen Story&nbsp;B benchmark. The third proposal didn't beat the noise floor &mdash; so the loop rolled it back.</p>
+
+    <div class="chartcard">
+      <div class="chart-head">
+        <span class="yl">p99 latency &middot; ms</span>
+        <span class="delta">170.7 &rarr; 42.0 ms &nbsp;(&minus;75.4%)</span>
+      </div>
+      <svg class="curve" viewBox="0 0 720 340" preserveAspectRatio="xMidYMid meet" role="img" aria-label="p99 latency falling from 170.7ms to 42.0ms over two kept index proposals, with a third proposal rejected and rolled back">
+        <!-- gridlines -->
+        <g stroke="#21333c" stroke-width="1">
+          <line x1="70" y1="30"  x2="700" y2="30"/>
+          <line x1="70" y1="97.5" x2="700" y2="97.5"/>
+          <line x1="70" y1="165" x2="700" y2="165"/>
+          <line x1="70" y1="232.5" x2="700" y2="232.5"/>
+          <line x1="70" y1="300" x2="700" y2="300"/>
+        </g>
+        <!-- y labels -->
+        <g font-size="11" text-anchor="end">
+          <text x="60" y="34">180</text>
+          <text x="60" y="101">135</text>
+          <text x="60" y="169">90</text>
+          <text x="60" y="236">45</text>
+          <text x="60" y="304">0</text>
+        </g>
+        <!-- kept curve: baseline 170.7 -> 121.9 -> 42.0 -> hold 42.0 -->
+        <polyline points="110,44 290,117 470,237 650,237" fill="none" stroke="#1BBBAF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- rejected round 3: dashed up to 56.4, hollow amber marker -->
+        <line x1="470" y1="237" x2="650" y2="215" stroke="#D2731F" stroke-width="2" stroke-dasharray="5 4" opacity="0.85"/>
+        <circle cx="650" cy="215" r="6" fill="#0F1D25" stroke="#D2731F" stroke-width="2.5"/>
+        <text x="638" y="205" font-size="10.5" text-anchor="end" fill="#D2731F">56.4 &mdash; rejected, rolled back</text>
+        <!-- kept points + value labels -->
+        <g>
+          <circle cx="110" cy="44" r="5" fill="#1BBBAF"/>
+          <text x="110" y="32" font-size="11.5" text-anchor="middle" fill="#DBE6E8">170.7</text>
+          <circle cx="290" cy="117" r="5" fill="#1BBBAF"/>
+          <text x="290" y="106" font-size="11.5" text-anchor="middle" fill="#DBE6E8">121.9</text>
+          <circle cx="470" cy="237" r="6.5" fill="#1BBBAF"/>
+          <text x="470" y="226" font-size="11.5" text-anchor="middle" fill="#DBE6E8">42.0</text>
+          <circle cx="650" cy="237" r="6.5" fill="#1BBBAF"/>
+          <text x="650" y="255" font-size="10" text-anchor="middle" fill="#6f868d">held</text>
+        </g>
+        <!-- x labels -->
+        <g font-size="10.5" text-anchor="middle" fill="#8499a0">
+          <text x="110" y="322">baseline</text>
+          <text x="290" y="322">+ title(production_year)</text>
+          <text x="470" y="322">+ cast_info(movie_id)</text>
+          <text x="650" y="322">round 3</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <span><i class="swatch"></i> kept &mdash; beat the noise floor</span>
+        <span><i class="swatch dot"></i> rejected &mdash; within noise, rolled back</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section>
+    <h2>The proposal ledger</h2>
+    <table class="ledger">
+      <thead>
+        <tr><th>Round</th><th>Proposed index (real Claude)</th><th>p99</th><th>vs prev</th><th>Decision</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>baseline</td><td>&mdash;</td><td class="p99">170.7 ms</td><td>&mdash;</td><td><span class="verdict keep">measured</span></td></tr>
+        <tr><td>1</td><td><code>title(production_year)</code></td><td class="p99">121.9 ms</td><td>&minus;28.6%</td><td><span class="verdict keep">Keep</span></td></tr>
+        <tr><td>2</td><td><code>cast_info(movie_id)</code></td><td class="p99">42.0 ms</td><td>&minus;65.5%</td><td><span class="verdict keep">Keep</span></td></tr>
+        <tr class="rejected"><td>3</td><td><code>title(production_year, id, title)</code></td><td class="p99">56.4 ms</td><td>no real gain</td><td><span class="verdict reject">Reject</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="stats">
+      <div class="stat"><div class="v">&minus;75.4%</div><div class="l">p99 reduction, baseline &rarr; final</div></div>
+      <div class="stat"><div class="v">3.0M</div><div class="l">cast_info rows (300k titles)</div></div>
+      <div class="stat"><div class="v">15&times;</div><div class="l">timed trials per point, sequential</div></div>
+      <div class="stat"><div class="v">1</div><div class="l">noise proposal caught &amp; rolled back</div></div>
+    </div>
+
+    <div class="proves">
+      <span class="tag">What this proves</span>
+      <p>The agent that <b>proposes</b> can't <b>apply, measure, or score</b> &mdash; it reads the DB as a SELECT-only role over read-only MCP and returns a candidate; the substrate applies it and the frozen benchmark judges it. Every kept index passed a correctness check and a Welch's t-test against the noise floor. <b>Round 3 looked plausible and was rejected anyway.</b> That's the difference between a benchmark you can trust and a number an optimizer graded for itself.</p>
+    </div>
+  </section>
+
+  <div class="foot wrap" style="padding-left:0;padding-right:0;">
+    <b>Recipe:</b> Postgres 16 + pg_stat_statements on :55432, seeded from <b>proposer-container/seed.sql</b> (scaled ~100&times;), workload <b>job-prodyear</b> = the title&times;cast_info production-year join.
+    Each round: <b>ClaudeCodeProposer().propose()</b> &rarr; real CREATE INDEX &rarr; <b>run_benchmark()</b> (5 warmup / 15 timed, work_mem=256MB) &rarr; <b>is_within_noise()</b> &rarr; keep or rollback.
+    Re-runnable live. &nbsp;Companion to the substrate strategy one-pager.
+  </div>
+</main>
