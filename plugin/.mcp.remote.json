@@ -1,11 +1,12 @@
 {
-  "//": "Remote control-plane MCP server (AgentCore Runtime, Cognito-authed). Uses Claude Code's built-in OAuth flow — NO static Authorization header (a static header disables OAuth fallback and breaks on token expiry). On connect the runtime returns 401 + RFC 9728 protected-resource metadata, Claude Code discovers the Cognito authorization server, and runs an authorization-code+PKCE browser flow; tokens are stored in your keychain and auto-refreshed. Cognito has no Dynamic Client Registration, so we pin a pre-registered client_id below; supply its secret once (it's a confidential client): `claude mcp login sunstead-control` (or `claude mcp add ... --client-secret`) — the secret lives in your keychain, never in this file. Secret is in dashboard_client.secret at the repo root. callbackPort 8080 must match the http://localhost:8080/callback redirect registered on the Cognito client.",
+  "//": "Remote control-plane MCP server (AgentCore Runtime, Cognito-authed). Uses Claude Code's built-in OAuth flow — NO static Authorization header (a static header disables OAuth fallback and breaks on token expiry). On connect the runtime returns 401 + RFC 9728 protected-resource metadata, Claude Code discovers the Cognito authorization server, and runs an authorization-code + PKCE browser flow; tokens are stored in your keychain and auto-refreshed.",
+  "//distribution": "clientId below is a PUBLIC Cognito client — authorization-code + PKCE, NO secret. PKCE (not a secret) protects the flow, so this id is safe to ship: anyone who installs the plugin uses it as-is, signs in as themselves, and lands as a read-only viewer until an operator adds their Cognito user to a group. No `claude mcp login` / secret step. To point at your OWN AgentCore runtime + Cognito pool, override with env vars: SUNSTEAD_CONTROL_URL and SUNSTEAD_CONTROL_CLIENT_ID. callbackPort 8080 must match the http://localhost:8080/callback redirect on the Cognito client.",
   "mcpServers": {
     "sunstead-control": {
       "type": "http",
-      "url": "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT",
+      "url": "${SUNSTEAD_CONTROL_URL:-https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT}",
       "oauth": {
-        "clientId": "5n4dhk9urmv04rtccq0cgefluv",
+        "clientId": "${SUNSTEAD_CONTROL_CLIENT_ID:-1phgpdfcrftedtj69hhni18bue}",
         "callbackPort": 8080,
         "scopes": "openid email profile"
       }
