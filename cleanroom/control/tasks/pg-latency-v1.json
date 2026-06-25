@@ -1,0 +1,10 @@
+{
+  "task_id": "pg-latency-v1",
+  "objective": "minimize p99 on the title x cast_info production-year join",
+  "workload_id": "job-prodyear",
+  "action_space": ["index"],
+  "db_ref": "production_db",
+  "constraints": { "max_iterations": 4 },
+  "default_model": "claude-haiku-4-5-20251001",
+  "state": "active"
+}
