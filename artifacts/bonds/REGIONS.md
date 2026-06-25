@@ -20,10 +20,10 @@ Two-sided benchmark. **dangerous** = cleared an error or an unverifiable claim (
   - `0.6-0.8`: n=68, escalate=71%, false-clear=0%, over-ask=41%, just-ask=29%
   - `0.8-1.0`: n=68, escalate=65%, false-clear=0%, over-ask=37%, just-ask=28%
 
-## llm:claude-haiku-4-5
-- **Region: trustworthy up to `0.8-1.0`** · dangerous=0% · wasted-ask=12% · good-ask=11%
-  - `0.0-0.2`: n=68, escalate=26%, false-clear=0%, over-ask=13%, just-ask=13%
-  - `0.2-0.4`: n=68, escalate=19%, false-clear=0%, over-ask=13%, just-ask=6%
-  - `0.4-0.6`: n=68, escalate=19%, false-clear=0%, over-ask=7%, just-ask=12%
-  - `0.6-0.8`: n=68, escalate=26%, false-clear=0%, over-ask=15%, just-ask=12%
-  - `0.8-1.0`: n=68, escalate=24%, false-clear=0%, over-ask=13%, just-ask=10%
+## dq_agent
+- **Region: trustworthy up to `none`** · dangerous=11% · wasted-ask=6% · good-ask=17%
+  - `0.0-0.2`: n=68, escalate=25%, false-clear=3%, over-ask=6%, just-ask=19%
+  - `0.2-0.4`: n=68, escalate=18%, false-clear=7%, over-ask=1%, just-ask=16%
+  - `0.4-0.6`: n=68, escalate=28%, false-clear=7%, over-ask=6%, just-ask=22%
+  - `0.6-0.8`: n=68, escalate=28%, false-clear=15%, over-ask=12%, just-ask=16%
+  - `0.8-1.0`: n=68, escalate=15%, false-clear=21%, over-ask=3%, just-ask=12%
