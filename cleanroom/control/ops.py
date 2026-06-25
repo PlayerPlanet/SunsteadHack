@@ -147,9 +147,12 @@ class Operator:
             # Hold as pending_judgment
             self.registry.save(spec, state="pending_judgment")
 
-            # Write crossing for human review
+            # Write crossing for human review. A governance crossing has NO
+            # associated experiment, so experiment_id is NULL — not 0, which would
+            # violate the real crossing.experiment_id -> experiment(id) FK (the
+            # in-memory fixture doesn't enforce it; real Postgres does).
             logclient.write_crossing(
-                experiment_id=0,  # No experiment yet
+                experiment_id=None,
                 pore=pore_result.pore,
                 risk_level=pore_result.risk_level,
                 requires_human_judgment=True,
@@ -370,3 +373,36 @@ class Operator:
             List of experiment dicts (as returned by logclient.read_experiments).
         """
         return logclient.read_experiments(filter={"task_id": task_id})
+
+    def read_boundary(self, *, logclient) -> dict:
+        """Read the boundary instrument — the manifesto's two live readings.
+
+        Delegates to Story C's frozen boundary queries (cleanroom.boundary), both
+        drawn off the escalation log:
+          - spatial: escalation rate vs workload drift (where the edge is now)
+          - longitudinal: escalations-per-unit-work vs cumulative volume (flat by
+            design with the frozen pore — that flatness is the artifact)
+
+        PROXY CAVEAT: the shippable pore gates blast-radius + reversibility, which
+        lower-bounds — but is not — the true epistemic edge. Label it as a proxy
+        wherever this is surfaced.
+
+        Args:
+            logclient: LogClient instance.
+
+        Returns:
+            {"spatial": [...], "longitudinal": [...], "proxy_caveat": str}.
+        """
+        from cleanroom.boundary import (
+            escalation_rate_by_drift,
+            escalations_per_unit_work,
+        )
+
+        return {
+            "spatial": escalation_rate_by_drift(logclient),
+            "longitudinal": escalations_per_unit_work(logclient),
+            "proxy_caveat": (
+                "Pore gates blast-radius + reversibility — a lower bound on, not "
+                "identical to, the agent's true epistemic edge."
+            ),
+        }

@@ -19,6 +19,11 @@ dev = [
 proposer = [
     "anthropic>=0.40",
 ]
+control = [
+    # Operator MCP server for the Claude Code plugin (Story D). Imported lazily by
+    # cleanroom/control/server/mcp.py so the package installs/imports without it.
+    "mcp>=1.0",
+]
 
 [tool.pytest.ini_options]
 markers = [

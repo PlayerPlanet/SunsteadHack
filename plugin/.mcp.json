@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sunstead-control": {
+      "command": "python",
+      "args": ["-m", "cleanroom.control.server.mcp"],
+      "env": {
+        "comment": "Set CLEANROOM_PG_DSN to enable persistence to Aiven Postgres, e.g. CLEANROOM_PG_DSN='postgresql://user:pass@host:5432/db?sslmode=require'",
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/../.."
+      }
+    }
+  }
+}

@@ -53,6 +53,22 @@ def _make_index_name(table: str, columns: list[str]) -> str:
     return f"idx_{table}_{col_str}_{hash_suffix}"
 
 
+def _make_stats_name(table: str, columns: list[str]) -> str:
+    """Derive a deterministic extended-statistics object name from table + columns.
+
+    Args:
+        table: The table name.
+        columns: List of column names the statistics span.
+
+    Returns:
+        A deterministic name (e.g., 'stx_title_production_year_kind_id_<hash>').
+    """
+    spec = f"{table}_{','.join(columns)}"
+    hash_suffix = hashlib.md5(spec.encode()).hexdigest()[:8]
+    col_str = "_".join(columns)
+    return f"stx_{table}_{col_str}_{hash_suffix}"
+
+
 def _validate_guc_name(name: str) -> None:
     """Validate that a GUC name is safe for use in ALTER SYSTEM.
 
@@ -88,12 +104,14 @@ def _quote_guc_value(value) -> str:
 def apply(conn, candidate: Candidate) -> None:
     """Apply the candidate to the database.
 
-    Supports candidate.type in {"index", "guc"}.
+    Supports candidate.type in {"index", "guc", "statistics"}.
 
     If conn is None (fixture/test mode), this is a no-op.
     If conn is real:
       - For "index": executes CREATE INDEX IF NOT EXISTS on the specified table+columns.
       - For "guc": applies a GUC parameter; raises RestartRequiredError if postmaster-context.
+      - For "statistics": CREATE STATISTICS over >=2 columns (correlated-column estimates
+        for complex joins) + ANALYZE to populate; reversible via DROP STATISTICS.
 
     Args:
         conn: A database connection object (or None for Phase-0 fixture mode).
@@ -174,22 +192,61 @@ def apply(conn, candidate: Candidate) -> None:
                 "expected 'postmaster' or one of {user,superuser,sighup,backend,superuser-backend}"
             )
 
+    elif candidate.type == "statistics":
+        # Extended statistics — the canonical fix for correlated-column cardinality
+        # misestimation in complex joins (JOB). Reversible: DROP STATISTICS.
+        table = candidate.params.get("table")
+        columns = candidate.params.get("columns")
+
+        if not table or not columns or len(columns) < 2:
+            raise ValueError(
+                f"apply: statistics candidate.params must contain 'table' and >=2 "
+                f"'columns' (extended statistics span multiple columns), got {candidate.params}"
+            )
+
+        stats_name = _make_stats_name(table, columns)
+        col_str = ", ".join(f'"{c}"' for c in columns)
+
+        kinds = candidate.params.get("kinds")
+        kinds_clause = ""
+        if kinds:
+            allowed = {"ndistinct", "dependencies", "mcv"}
+            bad = [k for k in kinds if k not in allowed]
+            if bad:
+                raise ValueError(
+                    f"apply: invalid statistics kinds {bad}; allowed {sorted(allowed)}"
+                )
+            kinds_clause = f" ({', '.join(kinds)})"
+
+        sql = (
+            f'CREATE STATISTICS IF NOT EXISTS "{stats_name}"{kinds_clause} '
+            f'ON {col_str} FROM "{table}"'
+        )
+
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            # Extended statistics are only populated by ANALYZE — without it the
+            # object exists but the planner sees nothing new.
+            cur.execute(f'ANALYZE "{table}"')
+        conn.commit()
+
     else:
         raise ValueError(
             f"apply: unsupported candidate type '{candidate.type}' "
-            "(supported types: 'index', 'guc')"
+            "(supported types: 'index', 'guc', 'statistics')"
         )
 
 
 def rollback(conn, candidate: Candidate) -> None:
     """Rollback the candidate from the database.
 
-    Supports candidate.type in {"index", "guc"}.
+    Supports candidate.type in {"index", "guc", "statistics"}.
 
     If conn is None (fixture/test mode), this is a no-op.
     If conn is real:
       - For "index": executes DROP INDEX IF EXISTS on the index derived from candidate.
       - For "guc": executes ALTER SYSTEM RESET to restore the default/previous configured value.
+      - For "statistics": executes DROP STATISTICS IF EXISTS on the derived stats object.
 
     Args:
         conn: A database connection object (or None for Phase-0 fixture mode).
@@ -242,8 +299,25 @@ def rollback(conn, candidate: Candidate) -> None:
             cur.execute("SELECT pg_reload_conf()")
         conn.commit()
 
+    elif candidate.type == "statistics":
+        table = candidate.params.get("table")
+        columns = candidate.params.get("columns")
+
+        if not table or not columns:
+            raise ValueError(
+                f"rollback: statistics candidate.params must contain 'table' and "
+                f"'columns', got {candidate.params}"
+            )
+
+        stats_name = _make_stats_name(table, columns)
+        sql = f'DROP STATISTICS IF EXISTS "{stats_name}"'
+
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
+
     else:
         raise ValueError(
             f"rollback: unsupported candidate type '{candidate.type}' "
-            "(supported types: 'index', 'guc')"
+            "(supported types: 'index', 'guc', 'statistics')"
         )
