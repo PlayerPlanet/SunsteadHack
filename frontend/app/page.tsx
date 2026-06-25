@@ -34,7 +34,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             label="Experiments run"
-            value={stats ? stats.totalExperiments.toLocaleString() : "—"}
+            value={typeof stats?.totalExperiments === "number" ? stats.totalExperiments.toLocaleString() : "—"}
             sub="all domains"
           />
           <StatCard
@@ -45,13 +45,13 @@ export default function Dashboard() {
           />
           <StatCard
             label="Escalation rate"
-            value={stats ? `${stats.escalationRate.toFixed(1)}%` : "—"}
+            value={typeof stats?.escalationRate === "number" ? `${stats.escalationRate.toFixed(1)}%` : "—"}
             sub="of all experiments"
             accent={stats?.escalationRate > 20 ? "amber" : "neutral"}
           />
           <StatCard
             label="Active runs"
-            value={stats ? String(stats.activeRuns) : "—"}
+            value={stats?.activeRuns != null ? String(stats.activeRuns) : "—"}
             sub={stats?.activeRuns > 0 ? "running now" : "idle"}
             accent={stats?.activeRuns > 0 ? "navy" : "neutral"}
           />
