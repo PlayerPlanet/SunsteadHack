@@ -45,7 +45,7 @@ def bind_domain(task_spec, task_spec_dict: dict, ctx: "OperatorContext"):
     if bundle is None:
         return task_spec_dict, ctx
     task_spec_dict = dict(task_spec_dict)
-    task_spec_dict["conn"] = bundle.make_env()
+    task_spec_dict["conn"] = bundle.make_env(task_spec_dict)
     ctx = OperatorContext(
         proposer=bundle.proposer,
         benchmark=bundle.benchmark,

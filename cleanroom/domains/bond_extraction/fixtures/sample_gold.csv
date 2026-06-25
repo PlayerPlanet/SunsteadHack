@@ -1,0 +1,17 @@
+document_id,field_name,gold_value
+doc-001,issuer,Acme Corporation
+doc-001,isin,US0378331005
+doc-001,coupon_rate,3.5
+doc-001,currency,USD
+doc-002,issuer,Global Finance Inc
+doc-002,isin,IE00B4L5Y983
+doc-002,coupon_rate,4.125
+doc-002,currency,EUR
+doc-003,issuer,Tech Industries Ltd
+doc-003,isin,GB0002374006
+doc-003,coupon_rate,2.75
+doc-003,currency,GBP
+doc-004,issuer,Energy Resources plc
+doc-004,isin,FR0000131104
+doc-004,coupon_rate,3.25
+doc-004,currency,EUR

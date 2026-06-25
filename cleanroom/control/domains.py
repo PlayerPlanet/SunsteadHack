@@ -30,13 +30,16 @@ class DomainBundle:
                   task_spec["conn"] (the loop's per-run state the actions/benchmark
                   read & mutate). A factory (not a value) so every dispatch starts
                   from a clean baseline state.
+
+    The make_env callable now accepts an optional task_spec dict parameter to allow
+    domains to load real task data at dispatch time.
     """
 
     proposer: Any
     benchmark: Any
     pore: Any
     actions: Any
-    make_env: Callable[[], dict]
+    make_env: Callable[[dict | None], dict]
 
 
 def _kernel_bundle() -> DomainBundle:
@@ -53,7 +56,7 @@ def _kernel_bundle() -> DomainBundle:
         benchmark=KernelBenchmark(),
         pore=KernelPore(),
         actions=KernelActions(),
-        make_env=lambda: {"kernel_fn": KERNELS["naive"], "_cur_strategy": "naive"},
+        make_env=lambda task_spec=None: {"kernel_fn": KERNELS["naive"], "_cur_strategy": "naive"},
     )
 
 
@@ -72,7 +75,7 @@ def _quant_bundle() -> DomainBundle:
         benchmark=QuantBenchmark(),
         pore=QuantPore(),
         actions=QuantActions(),
-        make_env=lambda: {
+        make_env=lambda task_spec=None: {
             "lookback": 30,
             "threshold": 0.02,
             "data": OHLCV_DATA,
@@ -97,7 +100,7 @@ def _bio_bundle() -> DomainBundle:
         actions=BioActions(),
         # Trivial baseline (threshold≈1.0 predicts almost nothing positive → F1≈0)
         # so any trained pipeline produces a clear first descent in the curve.
-        make_env=lambda: {
+        make_env=lambda task_spec=None: {
             "lr": 0.0001,
             "max_iter": 1,
             "threshold": 0.99,
@@ -107,12 +110,91 @@ def _bio_bundle() -> DomainBundle:
     )
 
 
+def _byo_agent_bundle() -> DomainBundle:
+    from cleanroom.domains.byo_agent import (
+        BYOAgentActions,
+        BYOAgentBenchmark,
+        BYOAgentPore,
+        ScriptedProposer,
+        build_env_from_task,
+    )
+
+    # For the domain bundle factory, we create a minimal env that can be augmented
+    # by the caller. The caller (script/control plane) must pass full task_dict
+    # to build_env_from_task() to get the real env with agent + eval loaded.
+    def make_byo_env(task_spec=None):
+        if task_spec:
+            # Load real env from task spec.
+            return build_env_from_task(task_spec)
+        # Minimal stub env — used for offline tests without real task data.
+        return {
+            "_cur_config": {
+                "system_prompt": "You are a helpful assistant.",
+                "few_shot": [],
+                "temperature": 1.0,
+                "top_p": 1.0,
+                "max_tokens": 1024,
+            },
+            "_agent": None,
+            "_eval": {"train": [], "holdout": []},
+            "_grader": ("exact", BYOAgentBenchmark._exact_grader),
+            "_loss_hash": "",
+            "_logclient": None,
+            "_config_stack": [],
+        }
+
+    return DomainBundle(
+        proposer=ScriptedProposer(),  # Use scripted for deterministic bundle
+        benchmark=BYOAgentBenchmark(),
+        pore=BYOAgentPore(),
+        actions=BYOAgentActions(),
+        make_env=make_byo_env,
+    )
+
+
 # Domain TaskSpecs select their bundle by workload_id. Keep these keys in sync with
 # the committed task JSON files under cleanroom/control/tasks/.
+def _bond_extraction_bundle() -> DomainBundle:
+    from cleanroom.domains.bond_extraction import (
+        BondActions,
+        BondBenchmark,
+        BondPore,
+        ScriptedExtractor,
+        build_env_from_task,
+    )
+
+    return DomainBundle(
+        proposer=ScriptedExtractor(),  # Use scripted for deterministic offline runs.
+        benchmark=BondBenchmark(),
+        pore=BondPore(),
+        actions=BondActions(),
+        make_env=lambda task_spec=None: (
+            build_env_from_task(task_spec)
+            if task_spec
+            else {
+                "_cur_config": {
+                    "field_patterns": {},
+                    "validation_enabled": False,
+                    "field_schema": [],
+                },
+                "_extractor": None,
+                "_eval": {"train": [], "holdout": []},
+                "_grader": ("field_match", None),
+                "_loss_hash": "",
+                "_interpretation": [],
+                "_logclient": None,
+                "_config_stack": [],
+            }
+        ),
+    )
+
+
 _BUILDERS: dict[str, Callable[[], DomainBundle]] = {
     "kernel_matmul_32": _kernel_bundle,
     "quant_walkforward_momentum": _quant_bundle,
     "bio_molclass_f1": _bio_bundle,
+    "byo_agent_demo": _byo_agent_bundle,
+    "bond_extraction": _bond_extraction_bundle,
 }
 
 
