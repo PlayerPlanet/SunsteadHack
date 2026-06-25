@@ -1,0 +1,460 @@
+<title>Substrate Strategy — Governed Autonomy as a Platform</title>
+<style>
+  :root {
+    --ground: #E9EEEF;
+    --paper: #F7F9FA;
+    --substrate: #0B151B;
+    --substrate-2: #0F1D25;
+    --ink: #0F1A21;
+    --muted: #56666E;
+    --line: #D3DCDF;
+    --line-soft: #E2E9EB;
+    --teal: #0C8C86;
+    --teal-bright: #1BBBAF;
+    --amber: #C2611B;
+    --amber-soft: #F0E2D2;
+    --teal-soft: #DCEEEC;
+    --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, ui-monospace, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 28px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin: 0 0 14px;
+  }
+
+  /* ---------- HERO / SUBSTRATE BAND ---------- */
+  .hero {
+    background:
+      radial-gradient(120% 90% at 88% -10%, rgba(27,187,175,0.16), transparent 55%),
+      linear-gradient(180deg, var(--substrate), var(--substrate-2));
+    color: #DBE6E8;
+    padding: 64px 0 56px;
+    border-bottom: 1px solid #1d2f38;
+  }
+  .hero .eyebrow { color: var(--teal-bright); }
+  .hero h1 {
+    font-size: clamp(2.3rem, 5.6vw, 3.85rem);
+    line-height: 1.02;
+    letter-spacing: -0.032em;
+    font-weight: 800;
+    margin: 0 0 22px;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+  .hero h1 .accent { color: var(--teal-bright); }
+  .hero .lede {
+    font-size: 1.18rem;
+    color: #A7BcC0;
+    max-width: 60ch;
+    margin: 0;
+  }
+  .hero .lede b { color: #EAF2F3; font-weight: 600; }
+
+  .readouts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 38px;
+    align-items: stretch;
+  }
+  .readout {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid #20323b;
+    border-radius: 10px;
+    padding: 14px 18px;
+    flex: 1 1 150px;
+  }
+  .readout .val {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.34rem;
+    font-weight: 600;
+    color: var(--teal-bright);
+    letter-spacing: -0.01em;
+  }
+  .readout .lab {
+    font-size: 0.78rem;
+    color: #8499a0;
+    margin-top: 5px;
+    line-height: 1.35;
+  }
+  .readout.curve { flex: 2 1 240px; display: flex; flex-direction: column; justify-content: space-between; }
+  .readout.curve svg { width: 100%; height: 46px; margin-top: 8px; display: block; }
+
+  /* ---------- SECTIONS ---------- */
+  section { padding: 52px 0; border-bottom: 1px solid var(--line); }
+  section:last-of-type { border-bottom: none; }
+  h2 {
+    font-size: 1.55rem;
+    letter-spacing: -0.018em;
+    font-weight: 750;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+  .sec-sub { color: var(--muted); margin: 0 0 30px; max-width: 64ch; }
+  p { margin: 0 0 16px; }
+  .lead-in { max-width: 66ch; }
+
+  /* ---------- TWO SKUs ---------- */
+  .skus { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .sku {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px 24px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .sku::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; }
+  .sku.measure::before { background: var(--teal); }
+  .sku.improve::before { background: var(--amber); }
+  .sku h3 { margin: 0 0 2px; font-size: 1.18rem; letter-spacing: -0.01em; }
+  .sku .verb {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+  .sku.measure .verb { color: var(--teal); }
+  .sku.improve .verb { color: var(--amber); }
+  .sku dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 0.92rem; }
+  .sku dt { color: var(--muted); font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.04em; text-transform: uppercase; padding-top: 3px; }
+  .sku dd { margin: 0; }
+
+  .callout {
+    margin-top: 22px;
+    background: var(--teal-soft);
+    border: 1px solid #BcE0db;
+    border-left: 4px solid var(--teal);
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+  }
+  .callout .tag {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--teal); display: block; margin-bottom: 6px;
+  }
+  .callout p { margin: 0; font-size: 0.98rem; }
+  .callout b { color: #075c58; }
+
+  /* ---------- REPO TABLE ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; background: var(--paper); }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); background: #EEF2F3; border-bottom: 1px solid var(--line);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code, .path {
+    font-family: var(--mono); font-size: 0.82rem; color: var(--ink);
+    background: #E7EDEE; padding: 1px 6px; border-radius: 5px; white-space: nowrap;
+  }
+  td .role { font-size: 0.93rem; }
+  .layer { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.04em; color: var(--muted); }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 20px; white-space: nowrap; font-weight: 600;
+  }
+  .pill.live { background: var(--teal-soft); color: #075c58; }
+  .pill.wide { background: #E8EEF6; color: #21508f; }
+  .pill.wip { background: var(--amber-soft); color: #8a4413; }
+
+  /* ---------- LADDER ---------- */
+  .ladder { display: flex; flex-direction: column; gap: 0; counter-reset: rung; }
+  .rung {
+    display: grid; grid-template-columns: 64px 1fr; gap: 22px;
+    padding: 22px 0; border-top: 1px solid var(--line);
+  }
+  .rung:first-child { border-top: none; }
+  .rung .num {
+    font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 1.55rem;
+    font-weight: 600; color: var(--teal); line-height: 1; padding-top: 2px;
+  }
+  .rung h4 { margin: 0 0 6px; font-size: 1.08rem; letter-spacing: -0.01em; }
+  .rung p { margin: 0 0 10px; font-size: 0.96rem; color: #34424a; max-width: 70ch; }
+  .rung .demo {
+    font-size: 0.88rem; color: var(--muted); padding-left: 14px; border-left: 2px solid var(--line);
+  }
+  .rung .demo b { color: var(--teal); font-weight: 600; }
+  .when {
+    display: inline-block; font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 2px 8px; border-radius: 4px; margin-left: 10px; vertical-align: 2px;
+  }
+  .when.today { background: var(--amber); color: #fff; }
+  .when.next { background: #E7EDEE; color: var(--muted); }
+
+  /* ---------- WHY / WHY-NOT ---------- */
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .stack { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; }
+  .stack h3 { margin: 0 0 14px; font-size: 1.02rem; letter-spacing: 0.02em; }
+  .stack.go h3 { color: var(--teal); }
+  .stack.stop h3 { color: var(--amber); }
+  .stack ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .stack li { font-size: 0.94rem; padding-left: 22px; position: relative; line-height: 1.5; }
+  .stack li::before { position: absolute; left: 0; top: 0; font-family: var(--mono); font-weight: 700; }
+  .stack.go li::before { content: "+"; color: var(--teal); }
+  .stack.stop li::before { content: "!"; color: var(--amber); }
+  .stack li b { font-weight: 650; }
+
+  /* ---------- CLOSER ---------- */
+  .closer { background: var(--substrate); color: #C9D6D9; padding: 44px 0; }
+  .closer .thesis { font-size: 1.42rem; line-height: 1.4; max-width: 52ch; margin: 0; letter-spacing: -0.01em; color: #EAF2F3; font-weight: 600; }
+  .closer .thesis .accent { color: var(--teal-bright); }
+  .closer .meta { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.08em; color: #708890; margin-top: 24px; text-transform: uppercase; }
+
+  /* reveal */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(14px); animation: rise 0.7s cubic-bezier(0.2,0.7,0.2,1) forwards; }
+    .hero .reveal:nth-child(2) { animation-delay: 0.06s; }
+    .hero .readouts { animation-delay: 0.12s; }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+  }
+
+  @media (max-width: 720px) {
+    body { font-size: 16px; }
+    .skus, .twocol { grid-template-columns: 1fr; }
+    .rung { grid-template-columns: 44px 1fr; gap: 14px; }
+  }
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow reveal">Platform Strategy &middot; 2026-06-25</p>
+    <h1 class="reveal">We didn't build a benchmark.<br>We built a substrate for <span class="accent">governed autonomy</span>.</h1>
+    <p class="lede reveal">The product everyone sees is a descending p99 curve. The product that's hard to copy is underneath it: a membrane that decides <b>proceed / escalate / seal</b>, reversible actions enforced as DB permissions, a drift tripwire, and an adversarial judge &mdash; all running against a <b>real Aiven region</b>, not a synthetic harness.</p>
+
+    <div class="readouts">
+      <div class="readout curve">
+        <span class="lab" style="color:#9fb4ba">Story A &middot; live p99 on Aiven (ms)</span>
+        <svg viewBox="0 0 240 46" preserveAspectRatio="none" aria-label="Descending p99 latency curve from 58 to 25 milliseconds">
+          <polyline points="0,6 34,12 68,11 102,22 136,26 170,33 204,37 240,40"
+            fill="none" stroke="#1BBBAF" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="240" cy="40" r="3.5" fill="#1BBBAF"/>
+        </svg>
+      </div>
+      <div class="readout"><div class="val">58&rarr;25</div><div class="lab">Story A p99, ms &mdash; descending, live</div></div>
+      <div class="readout"><div class="val">107&rarr;57</div><div class="lab">JOB 5-table join, ms &mdash; live</div></div>
+      <div class="readout"><div class="val">0</div><div class="lab">false-clears, shadow membrane gate</div></div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">The thesis</p>
+      <h2>One engine, pointed two directions.</h2>
+      <p class="sec-sub">The same loop that <em>measures</em> an agent can <em>improve</em> a region. That's not two products to build &mdash; it's two SKUs on the substrate we already shipped. The funnel writes itself: benchmark an agent, then let it run governed to actually move the metric.</p>
+
+      <div class="skus">
+        <div class="sku measure">
+          <div class="verb">Read-mostly &middot; scored</div>
+          <h3>Benchmark-as-a-Service</h3>
+          <dl>
+            <dt>Verb</dt><dd>Measure</dd>
+            <dt>Bring</dt><dd>Your agent (a <code>Proposer</code>) + a task spec</dd>
+            <dt>Target</dt><dd>A standardized, gradable task</dd>
+            <dt>Value</dt><dd>A trustworthy number &mdash; a ship / don't-ship gate</dd>
+          </dl>
+        </div>
+        <div class="sku improve">
+          <div class="verb">Read-write &middot; governed</div>
+          <h3>Autoresearch-as-a-Service</h3>
+          <dl>
+            <dt>Verb</dt><dd>Improve</dd>
+            <dt>Bring</dt><dd>Your region + an objective</dd>
+            <dt>Target</dt><dd>The customer's own live workload</dd>
+            <dt>Value</dt><dd>The optimization itself &mdash; the moved p99</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="callout">
+        <span class="tag">Coexistence &mdash; the neutrality fix</span>
+        <p>The only real conflict between hosting the benchmark and competing on it is <b>neutrality</b>. We dissolve it: <b>BaaS ships private-by-default &mdash; a CI gate, not a public leaderboard.</b> A customer benchmarks their own agent against their own bar; we never rank our house agents against theirs. Public boards stay opt-in, and our agents never enter them. Same substrate, two SKUs, no taste-test-hosted-by-the-brand problem.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">The repo, positioned</p>
+      <h2>Everything we've built is already substrate, control, or surface.</h2>
+      <p class="sec-sub">Nothing here is throwaway. Each piece maps cleanly onto one of the three layers &mdash; and the BYO seams (agent &amp; task) are existing extension points, not new subsystems.</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Component</th><th>Role in the strategy</th><th>Layer</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="path">cleanroom/loop</span></td>
+              <td class="role"><code>run_loop</code> + <code>Proposer</code>s &mdash; the agent execution engine. <b>BYO-agent</b> plugs in as a new Proposer.</td>
+              <td class="layer">Substrate</td>
+              <td><span class="pill live">Live</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">cleanroom/probe</span></td>
+              <td class="role">The membrane: proceed / escalate / seal, with calibration. <b>This is the moat</b> &mdash; safe autonomy, not just a score.</td>
+              <td class="layer">Substrate</td>
+              <td><span class="pill live">Live · shadow</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">cleanroom/logclient</span></td>
+              <td class="role"><code>crossing</code> ledger on real Aiven PG &mdash; the trustworthy, replayable record of every boundary crossing.</td>
+              <td class="layer">Substrate</td>
+              <td><span class="pill live">Live</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">scripts/drift_sweep.py</span></td>
+              <td class="role">Stationarity tripwire &mdash; the benchmark <em>knows</em> when the ground moved and quarantines the result.</td>
+              <td class="layer">Substrate</td>
+              <td><span class="pill live">Live</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">control/registry/store.py</span></td>
+              <td class="role"><code>TaskRegistryStore</code> &mdash; where a task spec lands. <b>BYO-task drops in here today.</b></td>
+              <td class="layer">Control</td>
+              <td><span class="pill wide">Widening today</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">control/dispatcher</span></td>
+              <td class="role"><code>RunScopedLogClient</code> + <code>SwappableRunStore</code> + web/worker split = per-run isolation, the multi-tenant rails.</td>
+              <td class="layer">Control</td>
+              <td><span class="pill live">Live</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">control/server/mcp.py</span></td>
+              <td class="role">Operator MCP surface + <code>tool_adjudicate</code> &mdash; the judge and the agent-facing API.</td>
+              <td class="layer">Control</td>
+              <td><span class="pill live">Live</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">deploy/aws</span></td>
+              <td class="role">Fargate + Terraform + OAuth2.1 resource server &mdash; deploy-grade hosting for the horizontal.</td>
+              <td class="layer">Platform</td>
+              <td><span class="pill live">Live · Story E</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">plugin/</span></td>
+              <td class="role">Claude operator plugin &mdash; the human/agent client into the control plane.</td>
+              <td class="layer">Platform</td>
+              <td><span class="pill live">Live</span></td>
+            </tr>
+            <tr>
+              <td><span class="path">dashboard</span></td>
+              <td class="role">The product surface: live curves, the leaderboard, the trustworthy number. The face of BaaS.</td>
+              <td class="layer">Surface</td>
+              <td><span class="pill wip">In progress</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">Today &mdash; we ship BYO-task</p>
+      <h2>Widen the bring-your-own surface one rung at a time. Every rung holds a demo.</h2>
+      <p class="sec-sub">BYO-task is real <em>today</em> because <code>TaskRegistryStore</code> already ingests JSON specs &mdash; <code>task_id · objective · workload_id · action_space · db_ref · constraints</code>. We don't open the floodgates; we widen each field of that spec in sequence, cashing a demoable win at each step. And because every run already executes inside the reversible membrane, even rung 01 is safe by construction.</p>
+
+      <div class="ladder">
+        <div class="rung">
+          <div class="num">01</div>
+          <div>
+            <h4>Submit a task spec, see it run<span class="when today">Today</span></h4>
+            <p>Wire the dashboard's "new task" form straight into <code>TaskRegistryStore</code>. The schema already exists; we're exposing it. Action space stays a vetted catalog (<code>shared_buffers</code>, <code>work_mem</code>, <code>index</code>, <code>statistics</code>).</p>
+            <p class="demo"><b>Demo:</b> a teammate types a new <code>task_id</code>, picks levers, hits run &mdash; a fresh curve descends live on Aiven.</p>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="num">02</div>
+          <div>
+            <h4>BYO objective + metric, from a menu<span class="when today">Today</span></h4>
+            <p>Let the submitter choose the oracle from a fixed menu &mdash; p99 latency / cost / join-plan quality. This sidesteps the universal-oracle trap: bounded choices, each with a judge we already trust.</p>
+            <p class="demo"><b>Demo:</b> two tasks, two different metrics, both produce a trustworthy, drift-checked curve side by side.</p>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="num">03</div>
+          <div>
+            <h4>BYO workload<span class="when next">Next</span></h4>
+            <p>Point <code>workload_id</code> / <code>db_ref</code> at a provided seed or snapshot, arm the drift tripwire against it. The benchmark now runs against data the customer brought.</p>
+            <p class="demo"><b>Demo:</b> a brought workload runs end-to-end; the stationarity tripwire flags &mdash; or clears &mdash; the result.</p>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="num">04</div>
+          <div>
+            <h4>BYO agent over the wire<span class="when next">Next</span></h4>
+            <p>Register an external <code>Proposer</code> endpoint. The control plane drives it through <code>run_loop</code> exactly like a house agent &mdash; the leaderboard becomes meaningful.</p>
+            <p class="demo"><b>Demo:</b> a customer's agent and ours run the same task; both land on a private board with verified, replayable crossings.</p>
+          </div>
+        </div>
+        <div class="rung">
+          <div class="num">05</div>
+          <div>
+            <h4>Harden for the adversary<span class="when next">Next</span></h4>
+            <p>Turn the cooperative boundary into a hostile-tenant boundary: <code>action_space</code> as a strict allowlist, reversibility via non-superuser PG perms, <code>RunScopedLogClient</code> isolation, <code>max_iterations</code> as a hard budget.</p>
+            <p class="demo"><b>Demo:</b> a deliberately hostile task tries an off-allowlist action and is blocked &mdash; the membrane holds, visibly.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <p class="eyebrow">The call</p>
+      <h2>Why we go &mdash; and where we don't.</h2>
+      <div class="twocol">
+        <div class="stack go">
+          <h3>WHY WE SHOULD</h3>
+          <ul>
+            <li><b>The market's real pain is trust, not IQ.</b> "Can I ship this agent?" beats "is it smart?" &mdash; and we measure trust on a live region.</li>
+            <li><b>Recurring by nature.</b> Agents retrain constantly, so they re-benchmark constantly. A subscription, not a one-shot eval.</li>
+            <li><b>It leverages sunk cost.</b> The multi-tenant rails, OAuth, and judge already exist. BYO-agent is a marginal add.</li>
+            <li><b>It owns a standard.</b> Whoever hosts the gate owns the procurement decision in a task domain.</li>
+          </ul>
+        </div>
+        <div class="stack stop">
+          <h3>WHERE WE'RE CAREFUL</h3>
+          <ul>
+            <li><b>BYO-task is iterative, not a floodgate.</b> Free-form oracles are a research program; we widen the spec field by field instead.</li>
+            <li><b>The threat model flips adversarial.</b> Our boundary was built for cooperative agents &mdash; rung 05 exists precisely to harden it.</li>
+            <li><b>p99 needs no noisy neighbor.</b> Trustworthy latency may mean dedicated runs; cost attribution is first-class.</li>
+            <li><b>Sell the decision, not the number.</b> A gate in CI sells; a bare score doesn't.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="closer">
+  <div class="wrap">
+    <p class="thesis">BYO-<span class="accent">agent</span> yes. BYO-<span class="accent">task</span> today &mdash; widened one demoable rung at a time. Coexistence yes, because the benchmark stays a <span class="accent">private gate</span>, not a public ranking.</p>
+    <p class="meta">Governed-autonomy substrate &middot; cleanroom + control plane &middot; live on Aiven &amp; AWS</p>
+  </div>
+</footer>
