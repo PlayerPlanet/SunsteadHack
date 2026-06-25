@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import StatCard from "@/components/StatCard";
 import BoundaryChart from "@/components/BoundaryChart";
+import PluginHero from "@/components/PluginHero";
 import TopBar from "@/components/TopBar";
 import Link from "next/link";
 import { ArrowRight, Circle } from "lucide-react";
@@ -25,6 +26,9 @@ export default function Dashboard() {
     <>
       <TopBar title="Dashboard" />
       <main className="flex-1 p-6 space-y-6 overflow-y-auto">
+
+        {/* Plugin invite */}
+        <PluginHero />
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
