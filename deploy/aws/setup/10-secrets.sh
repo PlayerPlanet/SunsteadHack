@@ -21,7 +21,7 @@ echo "Region: $AWS_REGION"
 echo ""
 
 # Verify env vars are set
-if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+if [ -z "${anthropic_aws:-}" ]; then
     echo "Error: ANTHROPIC_API_KEY environment variable not set."
     echo "Set it before running this script:"
     echo "  export ANTHROPIC_API_KEY='sk-ant-...'"
@@ -52,7 +52,7 @@ if [ -z "$SECRET_ARN" ]; then
     SECRET_ARN=$(aws secretsmanager create-secret \
         --region "$AWS_REGION" \
         --name "$SECRET_ANTHROPIC_API_KEY_NAME" \
-        --secret-string "$ANTHROPIC_API_KEY" \
+        --secret-string "$anthropic_aws" \
         --query 'ARN' \
         --output text)
     echo "✓ Secret created: $SECRET_ARN"

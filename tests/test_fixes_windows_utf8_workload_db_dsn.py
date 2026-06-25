@@ -59,7 +59,9 @@ class TestSubprocessEncoding:
         """Verify docker run call passes encoding='utf-8' and errors='replace'."""
         proposer = ClaudeCodeProposer()
 
-        with mock.patch("subprocess.run") as mock_run:
+        with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}), mock.patch(
+            "subprocess.run"
+        ) as mock_run:
             # Setup mocks: version succeeds, images returns image exists, run returns valid JSON
             mock_run.side_effect = [
                 mock.MagicMock(returncode=0),  # docker version
@@ -90,7 +92,9 @@ class TestDBDsnPassthrough:
         proposer = ClaudeCodeProposer()
         test_dsn = "postgresql://user@aiven.example.com/testdb"
 
-        with mock.patch.dict(os.environ, {"PROPOSER_DB_DSN": test_dsn}):
+        with mock.patch.dict(
+            os.environ, {"PROPOSER_DB_DSN": test_dsn, "ANTHROPIC_API_KEY": "test-key"}
+        ):
             with mock.patch("subprocess.run") as mock_run:
                 mock_run.side_effect = [
                     mock.MagicMock(returncode=0),  # docker version
@@ -154,7 +158,10 @@ class TestDBDsnPassthrough:
                         ),
                     ]
 
-                    with mock.patch.dict(os.environ, {"CLEANROOM_PG_DSN": test_dsn}):
+                    with mock.patch.dict(
+                        os.environ,
+                        {"CLEANROOM_PG_DSN": test_dsn, "ANTHROPIC_API_KEY": "test-key"},
+                    ):
                         proposer.propose({"objective": "test"}, [])
 
                     # Check the docker run call
@@ -177,6 +184,7 @@ class TestDBDsnPassthrough:
 
         # Clear both env vars
         env_clean = {k: v for k, v in os.environ.items() if k not in ("PROPOSER_DB_DSN", "CLEANROOM_PG_DSN")}
+        env_clean["ANTHROPIC_API_KEY"] = "test-key"  # hermetic: propose() needs a key before docker run
 
         with mock.patch.dict(os.environ, env_clean, clear=True):
             with mock.patch("subprocess.run") as mock_run:
