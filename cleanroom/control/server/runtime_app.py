@@ -86,10 +86,20 @@ def build_runtime_app(*, host: str = "0.0.0.0", port: int = 8000):
 
     Returns the wrapped ASGI app. AgentCore expects it served at host:port/mcp.
     """
+    from mcp.server.transport_security import TransportSecuritySettings
+
     from cleanroom.control.server.mcp import build_server
 
     server = build_server()
     server.settings.stateless_http = True   # AgentCore default for basic MCP servers
     server.settings.host = host
     server.settings.port = port
+    # FastMCP's streamable-HTTP app enforces DNS-rebinding Host/Origin validation with an
+    # empty allowlist, which 421s requests proxied by AgentCore (Host =
+    # bedrock-agentcore.<region>.amazonaws.com). AgentCore is the sole authenticated
+    # ingress to this runtime (it validates the JWT + routes), so we disable the in-app
+    # Host check rather than maintain a brittle host allowlist.
+    server.settings.transport_security = TransportSecuritySettings(
+        enable_dns_rebinding_protection=False
+    )
     return IdentityMiddleware(server.streamable_http_app())
