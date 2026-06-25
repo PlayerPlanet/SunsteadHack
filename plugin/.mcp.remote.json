@@ -1,11 +1,13 @@
 {
-  "//": "Remote plugin config for the AgentCore-hosted control plane. The runtime uses CUSTOM_JWT (Cognito) inbound auth, so a Bearer access token is required. Set SUNSTEAD_TOKEN in your environment to a Cognito access token (see scripts/setup_cognito.sh -> $BEARER_TOKEN, or the machine client_credentials token for control:* scopes). To use this remote config instead of the stdio .mcp.json, copy it over .mcp.json or register the URL directly with `claude mcp add`.",
+  "//": "Remote control-plane MCP server (AgentCore Runtime, Cognito-authed). Uses Claude Code's built-in OAuth flow — NO static Authorization header (a static header disables OAuth fallback and breaks on token expiry). On connect the runtime returns 401 + RFC 9728 protected-resource metadata, Claude Code discovers the Cognito authorization server, and runs an authorization-code+PKCE browser flow; tokens are stored in your keychain and auto-refreshed. Cognito has no Dynamic Client Registration, so we pin a pre-registered client_id below; supply its secret once (it's a confidential client): `claude mcp login sunstead-control` (or `claude mcp add ... --client-secret`) — the secret lives in your keychain, never in this file. Secret is in dashboard_client.secret at the repo root. callbackPort 8080 must match the http://localhost:8080/callback redirect registered on the Cognito client.",
   "mcpServers": {
     "sunstead-control": {
       "type": "http",
       "url": "https://bedrock-agentcore.us-east-1.amazonaws.com/runtimes/arn%3Aaws%3Abedrock-agentcore%3Aus-east-1%3A528081867249%3Aruntime%2Fsunsteadcontrol_sunstead_control-u9zi87DjdX/invocations?qualifier=DEFAULT",
-      "headers": {
-        "Authorization": "Bearer ${SUNSTEAD_TOKEN}"
+      "oauth": {
+        "clientId": "5n4dhk9urmv04rtccq0cgefluv",
+        "callbackPort": 8080,
+        "scopes": "openid email profile"
       }
     }
   }
