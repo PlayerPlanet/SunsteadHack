@@ -1,66 +1,19 @@
-name: deploy
-
-# Deploy the control-plane MCP server to Amazon Bedrock AgentCore Runtime via the
-# AgentCore CLI. AgentCore handles the HTTPS endpoint, inbound OAuth, scaling and
-# session isolation — so there is no ALB/ECS/image-rollout here, just `agentcore deploy`.
-# Auth to AWS is via GitHub OIDC (no static keys). Gated behind DEPLOY_ENABLED so it
-# stays skipped until AWS + the committed agentcore/ config exist.
+name: Deploy to Vercel
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "cleanroom/**"
-      - "agentcore/**"
-      - "requirements-runtime.txt"
-      - ".github/workflows/deploy.yml"
-  workflow_dispatch:
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
-
-permissions:
-  id-token: write   # assume the deploy role via OIDC
-  contents: read
-
-env:
-  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+    branches:
+      - main
 
 jobs:
   deploy:
-    # Opt-in: skipped (green) until AWS is provisioned, the agentcore/ project is
-    # committed (via a one-time `agentcore create --protocol MCP`), and you set
-    # DEPLOY_ENABLED=true. See docs/deploy-agentcore.md.
-    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    environment: production   # add required reviewers in repo settings to gate deploys
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Install AgentCore CLI
-        run: npm install -g @aws/agentcore
-
-      - name: Vendor cleanroom into the CodeZip bundle
-        run: bash scripts/vendor_for_agentcore.sh
-
-      - name: Deploy to AgentCore Runtime
-        # Non-interactive: relies on the committed sunsteadcontrol/agentcore/*.json
-        # (generated once by `agentcore create`). The runtime fetches the Aiven DSN
-        # from Secrets Manager via CLEANROOM_PG_SECRET_ID (set in agentcore.json envVars).
-        working-directory: sunsteadcontrol
-        run: agentcore deploy --yes
-
-      - name: Show status
-        working-directory: sunsteadcontrol
-        run: agentcore status
+      - name: Deploy to Vercel
+        run: npx vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: frontend
+        env:
+          VERCEL_ORG_ID: team_DiXUw02Lc9dSI8fWGDkVAmH3
+          VERCEL_PROJECT_ID: prj_0bbBPLWyQU7Y243yU5VIhZBsIIt0
