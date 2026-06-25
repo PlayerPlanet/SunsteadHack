@@ -51,10 +51,16 @@ jobs:
       - name: Install AgentCore CLI
         run: npm install -g @aws/agentcore
 
+      - name: Vendor cleanroom into the CodeZip bundle
+        run: bash scripts/vendor_for_agentcore.sh
+
       - name: Deploy to AgentCore Runtime
-        # Non-interactive: relies on the committed agentcore/agentcore.json +
-        # agentcore/aws-targets.json (generated once by `agentcore create`).
-        run: agentcore deploy
+        # Non-interactive: relies on the committed sunsteadcontrol/agentcore/*.json
+        # (generated once by `agentcore create`). The runtime fetches the Aiven DSN
+        # from Secrets Manager via CLEANROOM_PG_SECRET_ID (set in agentcore.json envVars).
+        working-directory: sunsteadcontrol
+        run: agentcore deploy --yes
 
       - name: Show status
+        working-directory: sunsteadcontrol
         run: agentcore status

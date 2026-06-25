@@ -35,23 +35,52 @@ logger = logging.getLogger(__name__)
 # fresh process (e.g. each CLI invocation) starts with these as None.
 _operator: Operator | None = None
 _logclient: Any = None
+_secret_dsn_cache: str | None = None
+_secret_dsn_fetched: bool = False
 
 
 def reset_caches() -> None:
     """Clear the cached singletons. For tests that flip CLEANROOM_PG_DSN."""
-    global _operator, _logclient
+    global _operator, _logclient, _secret_dsn_cache, _secret_dsn_fetched
     _operator = None
     _logclient = None
+    _secret_dsn_cache = None
+    _secret_dsn_fetched = False
+
+
+def _secret_dsn() -> str | None:
+    """Fetch the app DSN from AWS Secrets Manager when CLEANROOM_PG_SECRET_ID is set.
+
+    The AgentCore-hosted runtime uses this: its IAM role grants
+    secretsmanager:GetSecretValue on the secret, so the DSN is never stored in
+    agentcore.json (whose envVars are plaintext-only) or committed to git. boto3 is
+    imported lazily so the package imports without it outside the runtime. Cached for
+    the process so we hit Secrets Manager once.
+    """
+    global _secret_dsn_cache, _secret_dsn_fetched
+    if _secret_dsn_fetched:
+        return _secret_dsn_cache
+    sid = os.environ.get("CLEANROOM_PG_SECRET_ID") or os.environ.get("CLEANROOM_PG_SECRET_ARN")
+    if sid:
+        import boto3
+
+        kwargs = {"region_name": os.environ["AWS_REGION"]} if os.environ.get("AWS_REGION") else {}
+        resp = boto3.client("secretsmanager", **kwargs).get_secret_value(SecretId=sid)
+        _secret_dsn_cache = resp.get("SecretString")
+    _secret_dsn_fetched = True
+    return _secret_dsn_cache
 
 
 def data_dsn() -> str | None:
     """DSN the data path (run store + logclient) uses.
 
-    Prefers CLEANROOM_PG_APP_DSN (the non-superuser app login used in a remote
-    deployment) and falls back to CLEANROOM_PG_DSN (the local/stdio convention). When
-    neither is set, the in-memory backend is used.
+    Order: CLEANROOM_PG_APP_DSN (non-superuser app login, remote deploy) ->
+    CLEANROOM_PG_DSN (local/stdio) -> a Secrets Manager fetch if CLEANROOM_PG_SECRET_ID
+    is set (the AgentCore runtime). None of these set -> in-memory backend.
     """
-    return os.environ.get("CLEANROOM_PG_APP_DSN") or os.environ.get("CLEANROOM_PG_DSN")
+    return (os.environ.get("CLEANROOM_PG_APP_DSN")
+            or os.environ.get("CLEANROOM_PG_DSN")
+            or _secret_dsn())
 
 
 def _external_migrations() -> bool:
@@ -59,10 +88,12 @@ def _external_migrations() -> bool:
 
     In a deployment the serving login is a non-superuser that lacks CREATE, and the
     schema/roles are applied separately (sql/, the migrate step). Don't try to
-    init_schema from the serving process then. Triggered by serving via the app DSN
-    or an explicit CLEANROOM_SKIP_SCHEMA_INIT flag.
+    init_schema from the serving process then. Triggered by serving via the app DSN,
+    a Secrets Manager DSN, or an explicit CLEANROOM_SKIP_SCHEMA_INIT flag.
     """
     return bool(os.environ.get("CLEANROOM_PG_APP_DSN")
+                or os.environ.get("CLEANROOM_PG_SECRET_ID")
+                or os.environ.get("CLEANROOM_PG_SECRET_ARN")
                 or os.environ.get("CLEANROOM_SKIP_SCHEMA_INIT"))
 
 
